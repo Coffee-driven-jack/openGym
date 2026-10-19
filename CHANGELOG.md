@@ -108,7 +108,7 @@ you leave it alone. Handy for deciding whether those legs are really ready (than
   summary counts an exercise once even when it's in your workouts and your routines (thanks @lodepav).
 - Imports that convert pounds and kilos keep the weight to the hundredth: 45 lb comes in as
   20.41 kg and reads back as 45, not 44.97. Hevy notes keep their line breaks instead of a
-  literal "\\n" (thanks @lodepav).
+  literal `\n` (thanks @lodepav).
 - German step-by-step instructions for 1,213 more exercises, so all the exercises from before
   v1.4 explain themselves in German now (#645, thanks @junkerderprovinz).
 - In the Compact and List layouts the exercise chips at the top follow along: the one you tap
@@ -125,6 +125,10 @@ you leave it alone. Handy for deciding whether those legs are really ready (than
 - A phone app connected to your server now hears about a suggestion the server's automatic
   review left. The server only knew how to say it by web push, which the app doesn't have, so the
   review ran and the phone stayed quiet. Now the app tells you when you next open it.
+- Coach on a phone with your own key: Advanced lets you set the daily runs (0 for no limit,
+  handy with a model on your own network), the output-token ceiling a reasoning model needs
+  raised, and how long a message may be. You're the admin there, after all (#527, thanks
+  @xueyang-dev).
 
 ## v1.4.2 (2026-10-18)
 
