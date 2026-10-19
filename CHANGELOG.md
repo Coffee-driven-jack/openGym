@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Automatic Coach reviews on a phone with its own API key finally happen. The setting saved and
+  then nothing ever ran them, because only a server ran them. Now the phone does it while the app
+  is open: right after the workout that completes the count, or the first time you open it after
+  your weekly slot. It only speaks up when it has something to suggest.
+
 ## v1.4.2 (2026-10-18)
 
 openGym comes to the App Store, with an Apple Watch app in tow. Plus everything you asked for
