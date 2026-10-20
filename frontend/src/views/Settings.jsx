@@ -1526,7 +1526,7 @@ function HealthCard({ S, toast, platform }) {
       {h.on && h.error === 'permission' && <Row icon="warning" iconTint="var(--orange)"
         title={t('Permission withdrawn. Tap to allow again')}
         subtitle={ios ? t('Allow openGym in Health > Sharing > Apps') : undefined}
-        accessory="chevron" onClick={ios ? () => openHealthConnect().catch(() => {}) : turnOn} />}
+        accessory="chevron" onClick={ios ? () => openHealthConnect('health').catch(() => {}) : turnOn} />}
       {h.on && <Row icon="list" iconTint="var(--blue)" title={c.open}
         accessory="chevron" onClick={() => openHealthConnect(ios ? 'health' : undefined).catch(() => {})} />}
     </Section>

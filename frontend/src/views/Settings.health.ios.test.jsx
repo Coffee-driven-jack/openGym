@@ -132,7 +132,7 @@ describe('Settings - Apple Health', () => {
     expect(row('Permission withdrawn').textContent).toContain('Allow openGym in Health > Sharing > Apps')
     await act(async () => { row('Permission withdrawn').click() })
     expect(mocks.enableHealth).not.toHaveBeenCalled()
-    expect(mocks.openHealthConnect).toHaveBeenCalledTimes(1)
+    expect(mocks.openHealthConnect).toHaveBeenCalledWith('health')
   })
 
   it('opens the Health app from its own row', async () => {

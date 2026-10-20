@@ -72,7 +72,9 @@ public class HealthKitPlugin: CAPPlugin {
         }
         let share: Set<HKSampleType> = [HKObjectType.workoutType(), bodyMass]
         // Heart rate is read by the workout screen later on; asked now so the user is asked once.
-        let read: Set<HKObjectType> = [heartRate]
+        // Workouts and body mass are read too: without read access a query only returns this
+        // app's own objects, and clearOwn could not tell that the watch app already saved one.
+        let read: Set<HKObjectType> = [heartRate, HKObjectType.workoutType(), bodyMass]
         store.requestAuthorization(toShare: share, read: read) { [log] _, error in
             if let error = error {
                 log.error("HealthKit authorization failed: \(error.localizedDescription, privacy: .public)")
