@@ -8,6 +8,10 @@
 - **Heart rate from your Apple Watch.** With Settings > Apple Health > Read heart rate on, a
   workout finished on the iPhone shows the heart rate your watch recorded during it: average and
   peak on the finish screen, a small graph in the workout's details, and a line in Copy as text.
+- **openGym on Apple Watch.** Starting a workout on the iPhone starts one on your watch: live
+  heart rate in the workout header, the rest timer on your wrist with a tap at 10 seconds, +15 s
+  and Skip, and one workout with its heart rate saved to Health. Settings > Apple Health >
+  Apple Watch turns it off.
 
 ## v1.4.1 (2026-10-10)
 
