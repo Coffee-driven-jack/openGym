@@ -7,8 +7,9 @@ import os
 /**
  * Writes finished workouts and weigh-ins to Apple Health, the iOS twin of the Android app's
  * HealthConnectPlugin.java: the same five methods, the same plain objects in, the same error
- * codes out. Write-only and off until the user turns it on in Settings; nothing is asked of
- * HealthKit before that. What to write is worked out in JS (lib/health-connect.js).
+ * codes out, plus readHeartRate, which only iOS has: the watch's heart rate for a workout's
+ * window. Off until the user turns it on in Settings; nothing is asked of HealthKit before that.
+ * What to write is worked out in JS (lib/health-connect.js).
  *
  * Every object carries openGym's own id as HKMetadataKeyExternalUUID. HealthKit has no
  * replace-by-id, so writing a record again first deletes what this app saved under that id; an
@@ -23,6 +24,7 @@ import os
  *   await HC.requestPermissions();  // { granted }
  *   await HC.write({ sessions: [{ id, start, end, type, title, notes }], weights: [{ id, time, kg }] });
  *   await HC.remove({ sessions: [ids], weights: [ids] });
+ *   await HC.readHeartRate({ start, end }); // { samples: [{ t: ms, bpm }] }, any source, iOS only
  *   await HC.openSettings();        // the app's page in Settings, or { target: 'health' } for Health
  */
 @objc(HealthKitPlugin)
@@ -137,6 +139,34 @@ public class HealthKitPlugin: CAPPlugin {
                 self.reject(call, error)
             }
         }
+    }
+
+    /** Heart-rate samples in [start, end] from any source (the watch), oldest first, in bpm. */
+    @objc func readHeartRate(_ call: CAPPluginCall) {
+        guard let start = Self.date(call.getDouble("start").map { NSNumber(value: $0) }),
+              let end = Self.date(call.getDouble("end").map { NSNumber(value: $0) }), end > start else {
+            call.reject("start and end are required", "failed")
+            return
+        }
+        guard HKHealthStore.isHealthDataAvailable() else {
+            call.reject("Health data is not available on this device", "unavailable")
+            return
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        let bpm = HKUnit.count().unitDivided(by: .minute())
+        let query = HKSampleQuery(sampleType: heartRate, predicate: predicate, limit: HKObjectQueryNoLimit,
+                                  sortDescriptors: [sort]) { [weak self] _, samples, error in
+            if let error = error {
+                self?.reject(call, error)
+                return
+            }
+            let out: [JSObject] = (samples as? [HKQuantitySample] ?? []).map { s in
+                ["t": s.startDate.timeIntervalSince1970 * 1000, "bpm": s.quantity.doubleValue(for: bpm)]
+            }
+            call.resolve(["samples": out])
+        }
+        store.execute(query)
     }
 
     @objc func openSettings(_ call: CAPPluginCall) {

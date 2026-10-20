@@ -8,4 +8,5 @@ CAP_PLUGIN(HealthKitPlugin, "HealthKit",
            CAP_PLUGIN_METHOD(write, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(remove, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(openSettings, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(readHeartRate, CAPPluginReturnPromise);
 )

@@ -16,9 +16,10 @@ import { healthRecords, planSync, writtenIds } from './health-connect.js'
 import { exerciseNameFor } from './i18n-core.js'
 import { EXIDX } from './exercises.js'
 import { speedUnitOf } from './speed.js'
+import { hrSummary } from './heart-rate.js'
 
 export const HEALTH_FILE = 'opengym-health.json'
-const OFF = { on: false, written: {}, at: 0, error: null }
+const OFF = { on: false, written: {}, at: 0, error: null, readHr: false }
 
 // Wrapped in an object, as in rest-alert.js: a Capacitor plugin proxy answers `then`, so a
 // promise resolved with the bare proxy never settles.
@@ -182,7 +183,7 @@ export async function disableHealth({ removeWritten = false } = {}) {
 // Back in the foreground: a change synced from another device while the phone was away, or a
 // permission the user granted again in Health Connect's own settings, is picked up then.
 let started = false
-export function initHealthSync(getState) {
+export function initHealthSync(getState, onLaunch) {
   if (!MOBILE || started) return
   started = true
   import('@capacitor/app').then(({ App }) => {
@@ -190,5 +191,30 @@ export function initHealthSync(getState) {
   }).catch(() => {})
   // Once at launch, for a workout finished just before the app was closed. Reading the file here
   // also settles whether it is on, which the saves wait for (syncHealth).
-  setTimeout(() => loadHealth().then(() => syncHealth(getState())).catch(() => {}), 3000)
+  // Heart rate for a workout finished just before is read back then too (onLaunch).
+  setTimeout(() => loadHealth().then(() => { Promise.resolve(onLaunch?.()).catch(() => {}); return syncHealth(getState()) }).catch(() => {}), 3000)
+}
+
+/** Whether heart rate is read back from Apple Health for finished workouts. */
+export async function setReadHr(on) {
+  const out = { ...(await loadHealth()), readHr: !!on }
+  await saveHealth(out)
+  told(out)
+  return out
+}
+
+/**
+ * The heart rate Apple Health holds for the workout's window, as its w.hr summary (lib/heart-rate.js).
+ * Null when it is off, on Android (Health Connect is write-only here), or when the read fails.
+ */
+export async function fetchHeartRate(w) {
+  if (!MOBILE || !w?.start || !w?.end) return null
+  try {
+    const h = await loadHealth()
+    if (!h.on || !h.readHr || !(await isIOS())) return null
+    const p = await plugin()
+    if (!p) return null
+    const r = await p.HC.readHeartRate({ start: w.start, end: w.end })
+    return hrSummary(r?.samples, w.start, w.end)
+  } catch { return null }
 }

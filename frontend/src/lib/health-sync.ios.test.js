@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Connect (health-sync.test.js), with HealthKitPlugin.swift played in memory.
 const h = vi.hoisted(() => {
   vi.stubEnv('VITE_MOBILE', '1')
-  return { files: new Map(), calls: [], platform: 'ios', names: [], status: { status: 'available', granted: false }, grant: true, fail: null }
+  return { files: new Map(), calls: [], platform: 'ios', names: [], status: { status: 'available', granted: false }, grant: true, fail: null, samples: [], hrFail: null }
 })
 
 vi.mock('@capacitor/filesystem', () => ({
@@ -33,6 +33,11 @@ vi.mock('@capacitor/core', () => ({
       },
       remove: async arg => { h.calls.push(['remove', arg]) },
       openSettings: async arg => { h.calls.push(['settings', arg]) },
+      readHeartRate: async arg => {
+        h.calls.push(['hr', arg])
+        if (h.hrFail) throw Object.assign(new Error('refused'), { code: h.hrFail })
+        return { samples: h.samples }
+      },
     }
   },
 }))
@@ -50,6 +55,7 @@ beforeEach(async () => {
   vi.resetModules()
   h.files.clear(); h.calls = []; h.names = []; h.platform = 'ios'
   h.status = { status: 'available', granted: false }; h.grant = true; h.fail = null
+  h.samples = []; h.hrFail = null
   hs = await import('./health-sync.js')
 })
 
@@ -119,5 +125,48 @@ describe('keeping in step', () => {
     await hs.disableHealth({ removeWritten: true })
     expect(removes()).toEqual([{ sessions: ['opengym-w-w1'], weights: ['opengym-bw-2026-09-17'] }])
     expect(file()).toMatchObject({ on: false, written: {} })
+  })
+})
+
+describe('reading heart rate back', () => {
+  const w = workout('w1', 17)
+  const hrCalls = () => h.calls.filter(c => c[0] === 'hr').map(c => c[1])
+  beforeEach(() => { h.samples = [{ t: w.start + 60000, bpm: 120 }, { t: w.start + 120000, bpm: 140 }] })
+
+  it('asks nothing while it is off', async () => {
+    expect(await hs.fetchHeartRate(w)).toBeNull()
+    await hs.enableHealth(state([w]))
+    expect(await hs.fetchHeartRate(w)).toBeNull()
+    expect(hrCalls()).toEqual([])
+    expect(file().readHr).toBe(false)
+  })
+
+  it('reads the workout window once turned on, and summarises it', async () => {
+    await hs.enableHealth(state([w]))
+    const seen = []
+    hs.onHealthChange(x => seen.push(x.readHr))
+    await hs.setReadHr(true)
+    expect(file().readHr).toBe(true)
+    expect(seen).toEqual([true])
+    expect(await hs.fetchHeartRate(w)).toEqual({ avg: 130, max: 140, min: 120, n: 2, s: [[60, 120], [120, 140]] })
+    expect(hrCalls()).toEqual([{ start: w.start, end: w.end }])
+  })
+
+  it('is null when Health has nothing, or the read fails', async () => {
+    await hs.enableHealth(state([w]))
+    await hs.setReadHr(true)
+    h.samples = []
+    expect(await hs.fetchHeartRate(w)).toBeNull()
+    h.hrFail = 'permission'
+    expect(await hs.fetchHeartRate(w)).toBeNull()
+  })
+
+  it('never reads on Android', async () => {
+    await hs.enableHealth(state([w]))
+    await hs.setReadHr(true)
+    vi.resetModules(); h.platform = 'android'
+    const android = await import('./health-sync.js')
+    expect(await android.fetchHeartRate(w)).toBeNull()
+    expect(hrCalls()).toEqual([])
   })
 })
