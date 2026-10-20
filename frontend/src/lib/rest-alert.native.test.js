@@ -85,7 +85,7 @@ describe('the rest alert in the iOS app', () => {
     const at = Date.now() + 90_000
     await alert.armRestAlert(at, { totalSec: 90, countdownTitle: 'Rest', accent: 'red', next: { name: 'Bench Press', set: 'Set 2/3', detail: '60×8' } })
     expect(schedule).toHaveBeenCalledWith(expect.objectContaining({
-      at, totalMs: 90_000, countdownTitle: 'Rest', title: 'Rest over — next set!', pause: 'Pause', resume: 'Resume', skip: 'Skip', minus: '− 15s', plus: '+ 15s',
+      at, totalMs: 90_000, countdownTitle: 'Rest', title: 'Rest’s over. Next set!', pause: 'Pause', resume: 'Resume', skip: 'Skip', minus: '− 15s', plus: '+ 15s',
       accent: (0xff000000 | 0xff453a) >>> 0, ink: 0xffffffff,
       nextName: 'Bench Press', nextSet: 'Set 2/3', nextDetail: '60×8',
     }))
@@ -212,11 +212,14 @@ describe('the alarm buzz in the Android app', () => {
     expect(calls.buzz).toHaveLength(1)
   })
 
-  it('answers false in the iOS app without touching any plugin', async () => {
+  // iOS has a RestAlert plugin (the Live Activity), but no alarm buzz on it: the call never
+  // reaches the native side, and the page buzzes the ordinary way.
+  it('answers false in the iOS app without asking the plugin to buzz', async () => {
     h.platform = 'ios'
     const alert = await import('./rest-alert.js')
     await expect(alert.buzzAsAlarm([200, 100, 200])).resolves.toBe(false)
-    expect(h.registerPlugin).not.toHaveBeenCalled()
+    await settle()
+    expect(h.calls).not.toContain('buzz')
     expect(unhandled).toEqual([])
   })
 })

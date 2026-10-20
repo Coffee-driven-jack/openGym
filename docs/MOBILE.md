@@ -357,8 +357,9 @@ membership, the distribution certificate and profile as protected file variables
   Dynamic Island, with the Android card's Pause, ±15 s and Skip buttons from iOS 17, and under
   the clock the set the rest is for — "Bench Press · Set 3/4 · 60×8", worked out from the session
   by `src/lib/rest-up-next.js`. Between rests the same Live Activity shows the workout itself, up
-  from the moment the session starts: the routine, the time since it started and the set to do
-  now, with Done to tick it (`src/lib/workout-activity.js`; Done goes
+  from the moment the session starts, with the exercise to do as its title: the time since it
+  started, the set to do now and Done to tick it. It follows the exercise selected in the app, and
+  when a rest runs out it shows the next set by itself, with the phone locked (`src/lib/workout-activity.js`; Done goes
   through the workout screen's own tick, so the rest and the rest of the flow follow). It is drawn
   by the `RestWidget` app extension (`frontend/ios/App/RestWidget`, bundle id
   `ch.duartesantos.opengym.RestWidget`), which signing has to cover alongside the app; the state

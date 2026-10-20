@@ -14,7 +14,7 @@ const session = (extra = {}) => ({
 
 describe('workoutActivityOf', () => {
   it('shows the first set with its reps as soon as the workout starts', () => {
-    expect(workoutActivityOf({ unit: 'kg', active: session() }, null, { nameOf })).toEqual({
+    expect(workoutActivityOf({ unit: 'kg', active: session() }, { nameOf })).toEqual({
       title: 'Push Day', startedAt: 1_000, name: 'Bench Press', set: 'Set 1/3', detail: '60×8',
       idx: 0, i: 0,
     })
@@ -23,33 +23,34 @@ describe('workoutActivityOf', () => {
   it('moves on with the sets ticked, and to the next exercise when one is done', () => {
     const a = session()
     a.entries[0].sets[0].done = true
-    expect(workoutActivityOf({ active: a }, null, { nameOf })).toMatchObject({ name: 'Bench Press', set: 'Set 2/3' })
+    expect(workoutActivityOf({ active: a }, { nameOf })).toMatchObject({ name: 'Bench Press', set: 'Set 2/3' })
     a.entries[0].sets.forEach(s => { s.done = true })
-    expect(workoutActivityOf({ active: a }, null, { nameOf })).toMatchObject({ name: 'Barbell Row', set: 'Set 1/1', detail: '50×10' })
+    expect(workoutActivityOf({ active: a }, { nameOf })).toMatchObject({ name: 'Barbell Row', set: 'Set 1/1', detail: '50×10' })
   })
 
-  // During a rest the set is the one the rest is for, which follows the exercise that started it.
-  it('follows the rest’s owner rather than the marker while resting', () => {
+  // The exercise chosen in the app is the one on the card, whatever started the rest.
+  it('follows the exercise selected in the app', () => {
     const a = session({ cur: 1 })
     a.entries[0].sets[0].done = true
-    expect(workoutActivityOf({ active: a }, { forIdx: 0 }, { nameOf })).toMatchObject({ name: 'Bench Press', set: 'Set 2/3' })
-    expect(workoutActivityOf({ active: a }, null, { nameOf })).toMatchObject({ name: 'Barbell Row' })
+    expect(workoutActivityOf({ active: a }, { nameOf })).toMatchObject({ name: 'Barbell Row', set: 'Set 1/1', idx: 1, i: 0 })
+    a.cur = 0
+    expect(workoutActivityOf({ active: a }, { nameOf })).toMatchObject({ name: 'Bench Press', set: 'Set 2/3', idx: 0, i: 1 })
   })
 
   it('keeps the workout up with no set line once everything is ticked', () => {
     const a = session()
     a.entries.forEach(e => e.sets.forEach(s => { s.done = true }))
-    expect(workoutActivityOf({ active: a }, null, { nameOf })).toMatchObject({ title: 'Push Day', startedAt: 1_000, name: '', set: '', detail: '', idx: -1 })
+    expect(workoutActivityOf({ active: a }, { nameOf })).toMatchObject({ title: 'Push Day', startedAt: 1_000, name: '', set: '', detail: '', idx: -1 })
   })
 
   it('shows nothing outside a workout, for an empty one, or while editing a saved one', () => {
-    expect(workoutActivityOf({ active: null }, null)).toBeNull()
-    expect(workoutActivityOf({ active: session({ entries: [] }) }, null)).toBeNull()
-    expect(workoutActivityOf({ active: session({ editingWorkoutId: 'w0' }) }, null, { nameOf })).toBeNull()
+    expect(workoutActivityOf({ active: null })).toBeNull()
+    expect(workoutActivityOf({ active: session({ entries: [] }) })).toBeNull()
+    expect(workoutActivityOf({ active: session({ editingWorkoutId: 'w0' }) }, { nameOf })).toBeNull()
   })
 
   it('falls back to “Workout” for a session without a name', () => {
-    expect(workoutActivityOf({ active: session({ name: '' }) }, null, { nameOf }).title).toBe('Workout')
+    expect(workoutActivityOf({ active: session({ name: '' }) }, { nameOf }).title).toBe('Workout')
   })
 })
 

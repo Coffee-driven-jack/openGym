@@ -225,7 +225,14 @@ enum RestLive {
     static func markDone() async {
         guard let a = current else { return }
         var s = a.content.state
-        guard !s.resting, !s.pendingDone, s.setIdx >= 0 else { return }
+        // A rest that ran out shows the set (the widget's CardMode) before the app has taken the
+        // rest down: Done there is a Done on the set, and ends the rest with it.
+        let restOver = s.resting && !s.paused && s.endsAt <= Date()
+        guard !s.resting || (restOver && s.inWorkout), !s.pendingDone, s.setIdx >= 0 else { return }
+        if s.resting {
+            RestEnd.cancel()
+            s.endRest()
+        }
         s.pendingDone = true
         await a.update(ActivityContent(state: s, staleDate: s.staleDate))
         RestEvents.emitSet("done", idx: s.setIdx, i: s.setI)

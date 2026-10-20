@@ -3,9 +3,10 @@
 // for — "Bench Press · Set 1/4 · 60×8". Rests take the same Live Activity over with their
 // countdown (lib/rest-alert.js); this is what it goes back to between them.
 //
-// The set to do now is the one a rest would be for: during a rest, the set after the one that
-// started it; otherwise the marked exercise's next undone set, or the next unfinished exercise
-// once that one is done. Read straight off the session, so it is a pure helper beside its test.
+// The set to do now follows the exercise selected in the app (S.active.cur), rests included: its
+// next undone set, or the next unfinished exercise once that one is done. Every way the app moves
+// on — a swipe, the list, a chip, the superset flow after a round — sets `cur`, so the card is on
+// the exercise the app shows. Read straight off the session, so it is a pure helper beside its test.
 //
 // The card's Done ticks that set from the Lock Screen. Each press names the set it was shown —
 // entry and row — so one that reaches the page late, after the set moved on, never lands on
@@ -17,10 +18,10 @@ import { isSideSet } from './workout-model.js'
 
 // null when there is nothing to show: no session, an empty one, or the editor of a saved
 // workout (it reuses S.active, but nobody is training).
-export function workoutActivityOf(S, timer, { nameOf } = {}) {
+export function workoutActivityOf(S, { nameOf } = {}) {
   const a = S?.active
   if (!a || a.editingWorkoutId || !Array.isArray(a.entries) || !a.entries.length) return null
-  const forIdx = timer && Number.isInteger(timer.forIdx) ? timer.forIdx : a.cur
+  const forIdx = a.cur
   const speedUnit = speedUnitOf(S)
   const next = restUpNext(a, forIdx, { speedUnit, ...(nameOf ? { nameOf } : {}) })
   const idx = next ? restUpNextIndex(a, forIdx) : null

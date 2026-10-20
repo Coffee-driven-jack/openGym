@@ -3,12 +3,14 @@ import AppIntents
 import SwiftUI
 import WidgetKit
 
-// The workout and its rests as the Lock Screen and the Dynamic Island show them. Between rests:
-// the routine, the time since it started, and the set to do now with what it asks for. During a
-// rest: the in-app shape, a clock and a shrinking bar in the accent colour, the set the rest is
-// for, and the Android notification's buttons (iOS 17 and later; the intents live in
-// App/RestActivity.swift). The system runs both clocks and the bar itself from their dates, so
-// nothing has to wake the app every second.
+// The workout and its rests as the Lock Screen and the Dynamic Island show them, with the
+// exercise to do as the title throughout. Between rests: the time since the workout started, the
+// set to do now with what it asks for, and Done to tick it. During a rest: the in-app shape, a
+// clock and a shrinking bar in the accent colour, and the Android notification's buttons (iOS 17
+// and later; the intents live in App/RestActivity.swift). When the rest runs out the card is the
+// set again on its own — the state already holds it, and the system redraws at the rest's end
+// (its stale date) without the app having to wake. The system runs both clocks and the bar
+// itself from their dates, so nothing has to wake the app every second.
 
 @main
 struct RestWidgetBundle: WidgetBundle {
@@ -17,67 +19,97 @@ struct RestWidgetBundle: WidgetBundle {
     }
 }
 
+/// What the card is showing: a rest counting (or held), a lone rest that ran out, or the set.
+private enum CardMode {
+    case rest, restOver, workout
+
+    init(_ s: RestActivityAttributes.ContentState, stale: Bool) {
+        let over = s.resting && !s.paused && (stale || s.endsAt <= Date())
+        if !s.resting || (over && s.inWorkout) { self = .workout }
+        else if over { self = .restOver }
+        else { self = .rest }
+    }
+}
+
+/// The exercise to do, the card's title; the routine (or the rest's own word) when there is none.
+private func cardTitle(_ a: RestActivityAttributes, _ s: RestActivityAttributes.ContentState, _ mode: CardMode) -> String {
+    if mode == .restOver { return a.doneTitle }
+    if !s.nextName.isEmpty { return s.nextName }
+    return s.inWorkout && !s.workoutTitle.isEmpty ? s.workoutTitle : a.title
+}
+
+/// The line under the title. During a rest: "Rest · Set 3/4 · 60×8". Between rests: which set,
+/// and the routine — "Set 1/4 · Push Day".
+private func cardSubtitle(_ a: RestActivityAttributes, _ s: RestActivityAttributes.ContentState, _ mode: CardMode) -> String {
+    let parts: [String]
+    switch mode {
+    case .rest: parts = s.nextName.isEmpty ? [] : [a.title, s.nextSet, s.nextDetail]
+    case .restOver: parts = []
+    case .workout: parts = s.nextName.isEmpty ? [] : [s.nextSet, s.workoutTitle]
+    }
+    return parts.filter { !$0.isEmpty }.joined(separator: " · ")
+}
+
 struct RestLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: RestActivityAttributes.self) { context in
+            let mode = CardMode(context.state, stale: context.isStale)
             // Opaque, in the app's own background (capacitor.config.json backgroundColor): the
             // clocks and the secondary buttons are white, and a translucent tint lets a light
             // wallpaper wash them out.
-            Group {
-                if context.state.resting {
-                    RestLockScreen(attributes: context.attributes, state: context.state, over: context.isStale)
-                } else {
-                    WorkoutLockScreen(attributes: context.attributes, state: context.state)
-                }
-            }
-            .background(appBackground)
-            .activityBackgroundTint(appBackground)
-            .activitySystemActionForegroundColor(.white)
+            CardLockScreen(attributes: context.attributes, state: context.state, mode: mode)
+                .widgetURL(cardURL(context.state))
+                .background(appBackground)
+                .activityBackgroundTint(appBackground)
+                .activitySystemActionForegroundColor(.white)
         } dynamicIsland: { context in
             let s = context.state
+            let mode = CardMode(s, stale: context.isStale)
             let accent = Color.argb(s.accent)
-            let over = context.isStale && s.resting
+            let icon = mode == .workout ? "dumbbell.fill" : (s.paused ? "pause.fill" : "timer")
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label(s.resting ? context.attributes.title : s.workoutTitle, systemImage: s.resting ? "timer" : "dumbbell.fill")
-                        .font(.headline)
+                    Image(systemName: icon)
+                        .font(.title2)
                         .foregroundStyle(accent)
-                        .lineLimit(1)
                         .padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Group {
-                        if s.resting {
-                            RestClock(attributes: context.attributes, state: s, over: over)
-                        } else {
+                        if mode == .workout {
                             WorkoutClock(state: s)
+                        } else {
+                            RestClock(attributes: context.attributes, state: s, over: mode == .restOver)
                         }
                     }
                     .font(.title2.monospacedDigit().weight(.semibold))
                     .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    if s.resting {
-                        VStack(alignment: .leading, spacing: 10) {
-                            RestUpNext(state: s)
-                                .padding(.horizontal, 4)
-                            RestBar(state: s, over: over)
-                            RestButtons(attributes: context.attributes, state: s, over: over)
-                        }
-                    } else {
-                        WorkoutSet(attributes: context.attributes, state: s)
-                            .padding(.horizontal, 4)
+                    // The title here, the full width: in the leading region beside the camera a
+                    // long exercise name had no room.
+                    // No icon on it (the leading region has one) and no bar under it (the clock above
+                    // says the time): the island is shorter than the Lock Screen card, and a title on
+                    // two lines would otherwise push the buttons out of it.
+                    VStack(alignment: .leading, spacing: 6) {
+                        CardTitle(attributes: context.attributes, state: s, mode: mode, icon: false)
+                        // Between rests the set's number rides beside its figures instead of on a
+                        // line of its own, for the same reason.
+                        let sub = cardSubtitle(context.attributes, s, mode)
+                        if mode != .workout && !sub.isEmpty { CardSubtitle(text: sub) }
+                        CardBody(attributes: context.attributes, state: s, mode: mode, bar: false, setInline: true)
                     }
+                    .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                Image(systemName: s.resting ? (s.paused ? "pause.fill" : "timer") : "dumbbell.fill")
+                Image(systemName: icon)
                     .foregroundStyle(accent)
             } compactTrailing: {
                 Group {
-                    if s.resting {
-                        RestClock(attributes: context.attributes, state: s, over: over)
-                    } else {
+                    if mode == .workout {
                         Text(s.pendingDone ? "✓" : s.nextDetail)
+                    } else {
+                        RestClock(attributes: context.attributes, state: s, over: mode == .restOver)
                     }
                 }
                 .font(.body.monospacedDigit())
@@ -85,103 +117,155 @@ struct RestLiveActivity: Widget {
                 .lineLimit(1)
                 .frame(maxWidth: 64)
             } minimal: {
-                Image(systemName: s.resting ? (s.paused ? "pause.fill" : "timer") : "dumbbell.fill")
+                Image(systemName: icon)
                     .foregroundStyle(accent)
             }
             .keylineTint(accent)
+            .widgetURL(cardURL(s))
         }
     }
+}
+
+/// Where a tap on the card lands (lib/workout-link.js): the workout screen, on the exercise the
+/// card shows. The scheme is the app's bundle id — this extension's, less ".RestWidget" — so two
+/// builds side by side never open each other.
+private func cardURL(_ s: RestActivityAttributes.ContentState) -> URL? {
+    guard var app = Bundle.main.bundleIdentifier else { return nil }
+    if app.hasSuffix(".RestWidget") { app = String(app.dropLast(".RestWidget".count)) }
+    var c = URLComponents()
+    c.scheme = app
+    c.host = "workout"
+    if s.setIdx >= 0 { c.queryItems = [URLQueryItem(name: "idx", value: String(s.setIdx))] }
+    return c.url
 }
 
 private let appBackground = Color(red: 12 / 255, green: 14 / 255, blue: 18 / 255)
 
-private struct RestLockScreen: View {
+/// The Lock Screen card: the exercise as the title, on a row of its own so a long name is shown
+/// whole (two lines at most), then the subtitle with the clock beside it — the rest's countdown,
+/// or the time since the workout started — then the body for the mode.
+private struct CardLockScreen: View {
     let attributes: RestActivityAttributes
     let state: RestActivityAttributes.ContentState
-    let over: Bool
+    let mode: CardMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
+            CardTitle(attributes: attributes, state: state, mode: mode)
             HStack(alignment: .firstTextBaseline) {
-                Label(over ? attributes.doneTitle : attributes.title, systemImage: "timer")
-                    .font(.headline)
-                    .foregroundStyle(Color.argb(state.accent))
-                    .lineLimit(1)
+                CardSubtitle(text: cardSubtitle(attributes, state, mode))
                 Spacer(minLength: 8)
-                RestClock(attributes: attributes, state: state, over: over)
-                    .font(.system(size: 34, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(.white)
+                if mode == .workout {
+                    WorkoutClock(state: state)
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.white.opacity(0.65))
+                } else {
+                    RestClock(attributes: attributes, state: state, over: mode == .restOver)
+                        .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(.white)
+                }
             }
-            // Its own row, the full width: beside the clock a long exercise name had no room.
-            RestUpNext(state: state)
-            RestBar(state: state, over: over)
-            RestButtons(attributes: attributes, state: state, over: over)
+            CardBody(attributes: attributes, state: state, mode: mode)
         }
-        .padding(16)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 }
 
-/// Between rests: the routine and how long it has run, then the set to do now.
-private struct WorkoutLockScreen: View {
+/// The exercise, whole: it wraps onto a second line, and only shrinks a little past that.
+private struct CardTitle: View {
     let attributes: RestActivityAttributes
     let state: RestActivityAttributes.ContentState
+    let mode: CardMode
+    var icon = true
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .firstTextBaseline) {
-                Label(state.workoutTitle, systemImage: "dumbbell.fill")
-                    .font(.headline)
-                    .foregroundStyle(Color.argb(state.accent))
-                    .lineLimit(1)
-                Spacer(minLength: 8)
-                WorkoutClock(state: state)
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.65))
+        Group {
+            if icon {
+                Label(cardTitle(attributes, state, mode), systemImage: mode == .workout ? "dumbbell.fill" : "timer")
+            } else {
+                Text(cardTitle(attributes, state, mode))
             }
-            WorkoutSet(attributes: attributes, state: state)
         }
-        .padding(16)
+            .font(.headline)
+            .foregroundStyle(Color.argb(state.accent))
+            .lineLimit(2)
+            .minimumScaleFactor(0.8)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// The set to do now: the exercise and which set on one line, then what it asks for in large
-/// type, and Done to tick it (iOS 17). After Done, a check until the page moves the card on to
-/// the next set.
+private struct CardSubtitle: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.subheadline)
+            .foregroundStyle(.white.opacity(0.65))
+            .lineLimit(1)
+    }
+}
+
+/// Under the subtitle: the rest's bar and buttons, or the set's figures and Done.
+private struct CardBody: View {
+    let attributes: RestActivityAttributes
+    let state: RestActivityAttributes.ContentState
+    let mode: CardMode
+    var bar = true
+    var setInline = false
+
+    var body: some View {
+        switch mode {
+        case .rest, .restOver:
+            VStack(alignment: .leading, spacing: 8) {
+                if bar { RestBar(state: state, over: mode == .restOver) }
+                RestButtons(attributes: attributes, state: state, over: mode == .restOver)
+            }
+        case .workout:
+            WorkoutSet(attributes: attributes, state: state, setInline: setInline)
+        }
+    }
+}
+
+/// The set to do now: what it asks for in large type, and Done to tick it (iOS 17). After Done,
+/// a check until the page moves the card on to the next set.
 private struct WorkoutSet: View {
     let attributes: RestActivityAttributes
     let state: RestActivityAttributes.ContentState
+    /// "Set 1/4" beside the figures, where there is no subtitle line to carry it.
+    var setInline = false
 
     var body: some View {
         if !state.nextName.isEmpty {
             let accent = Color.argb(state.accent)
-            VStack(alignment: .leading, spacing: 6) {
-                (Text(state.nextName).fontWeight(.semibold).foregroundColor(.white)
-                    + Text(state.nextSet.isEmpty ? "" : "  " + state.nextSet).foregroundColor(.white.opacity(0.65)))
-                    .font(.subheadline)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Text(state.nextDetail)
+                    .font(.system(size: 30, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
                     .lineLimit(1)
-                HStack(spacing: 10) {
-                    Text(state.nextDetail)
-                        .font(.system(size: 30, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(.white)
+                    .minimumScaleFactor(0.6)
+                if setInline && !state.nextSet.isEmpty {
+                    Text(state.nextSet)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.65))
                         .lineLimit(1)
-                        .minimumScaleFactor(0.6)
-                    Spacer(minLength: 8)
-                    if state.pendingDone {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(accent)
-                    } else if canAct, #available(iOS 17.0, *) {
-                        Button(intent: SetDoneIntent()) {
-                            Label(attributes.done, systemImage: "checkmark")
-                                .font(.subheadline.weight(.semibold))
-                                .lineLimit(1)
-                                .padding(.horizontal, 4)
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .buttonBorderShape(.capsule)
-                        .tint(accent)
-                        .foregroundStyle(Color.argb(state.ink))
+                }
+                Spacer(minLength: 8)
+                if state.pendingDone {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title)
+                        .foregroundStyle(accent)
+                } else if canAct, #available(iOS 17.0, *) {
+                    Button(intent: SetDoneIntent()) {
+                        Label(attributes.done, systemImage: "checkmark")
+                            .font(.subheadline.weight(.semibold))
+                            .lineLimit(1)
+                            .padding(.horizontal, 4)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .tint(accent)
+                    .foregroundStyle(Color.argb(state.ink))
                 }
             }
         }
@@ -198,23 +282,6 @@ private struct WorkoutClock: View {
         if let start = state.startedAt {
             Text(start, style: .timer)
                 .multilineTextAlignment(.trailing)
-        }
-    }
-}
-
-/// The set the rest is for: the exercise in bold, then which set and what it asks for —
-/// "Bench Press · Set 3/4 · 60×8". Nothing after the workout's last set.
-private struct RestUpNext: View {
-    let state: RestActivityAttributes.ContentState
-
-    var body: some View {
-        if !state.nextName.isEmpty {
-            let rest = [state.nextSet, state.nextDetail].filter { !$0.isEmpty }.joined(separator: " · ")
-            (Text(state.nextName).fontWeight(.semibold).foregroundColor(.white)
-                + Text(rest.isEmpty ? "" : "  " + rest).foregroundColor(.white.opacity(0.65)))
-                .font(.subheadline)
-                .lineLimit(1)
-                .truncationMode(.tail)
         }
     }
 }
@@ -322,7 +389,7 @@ private extension Color {
 @available(iOS 17.0, *)
 private extension RestActivityAttributes {
     static let preview = RestActivityAttributes(
-        title: "Rest", doneTitle: "Rest over — next set!",
+        title: "Rest", doneTitle: "Rest’s over. Next set!",
         pause: "Pause", resume: "Resume", minus: "− 15s", plus: "+ 15s", skip: "Skip", done: "Done",
         sound: true
     )
@@ -333,12 +400,12 @@ private extension RestActivityAttributes.ContentState {
     static func rest(endsIn: Double, left: Double, paused: Bool = false) -> Self {
         Self(resting: true, inWorkout: true, workoutTitle: "Push Day", startedAt: Date().addingTimeInterval(-754),
              endsAt: Date().addingTimeInterval(endsIn), totalSec: 90, leftSec: left, paused: paused,
-             accent: 0xFF30D158, ink: 0xFF000000, nextName: "Bench Press", nextSet: "Set 3/4", nextDetail: "60×8",
+             accent: 0xFF30D158, ink: 0xFF000000, nextName: "Dumbbell Standing Alternate Hammer Curl", nextSet: "Set 3/4", nextDetail: "14×10",
              setIdx: 0, setI: 2, pendingDone: false)
     }
     static let workout = Self(resting: false, inWorkout: true, workoutTitle: "Push Day", startedAt: Date().addingTimeInterval(-754),
                               endsAt: Date(), totalSec: 1, leftSec: 0, paused: false,
-                              accent: 0xFF30D158, ink: 0xFF000000, nextName: "Bench Press", nextSet: "Set 1/4", nextDetail: "60×8",
+                              accent: 0xFF30D158, ink: 0xFF000000, nextName: "Dumbbell Standing Alternate Hammer Curl", nextSet: "Set 1/4", nextDetail: "14×10",
                               setIdx: 0, setI: 0, pendingDone: false)
     static let running = rest(endsIn: 75, left: 75)
     static let paused = rest(endsIn: 0, left: 42, paused: true)

@@ -34,7 +34,7 @@ const bookRestEnd = (endsAt, totalSec, kind) => {
   // What the rest is for, for the iOS Lock Screen. A session in a shape the helper does not
   // expect costs the line under the clock, never the alert.
   let next = null
-  try { next = restUpNext(S.active, useUI.getState().timer?.forIdx, { speedUnit: speedUnitOf(S) }) } catch { next = null }
+  try { next = restUpNext(S.active, S.active?.cur, { speedUnit: speedUnitOf(S) }) } catch { next = null }
   armRestAlert(endsAt, { title: switching ? t('Switch sides') : t('Rest’s over. Next set!'), countdownTitle: switching ? t('Switch sides') : t('Rest'), totalSec, accent: accentValue(S), sound: !!S.sound, classic: restSoundOf(S) === 'classic', tone: restSoundOf(S), vibrate: S.vibrate !== false, alarmBuzz: S.vibrate !== false && !!S.vibrateOnSilent, next })
     .then(ok => {
       // Only for the rest that asked: one skipped or moved since then has booked its own end.
@@ -576,7 +576,7 @@ if (MOBILE) {
   let shown = null
   const syncWorkoutActivity = () => {
     let info = null
-    try { info = workoutActivityOf(useStore.getState().S, useUI.getState().timer) } catch { info = null }
+    try { info = workoutActivityOf(useStore.getState().S) } catch { info = null }
     const S = useStore.getState().S || {}
     const accent = accentValue(S)
     const sound = S.sound

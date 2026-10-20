@@ -267,6 +267,17 @@ describe('the workout on the Lock Screen', () => {
     expect(endWorkoutActivity).toHaveBeenCalled()
   })
 
+  // The app's selection is the card's, rests included: picking another exercise moves it there.
+  it('follows the exercise selected in the app, even during a rest', () => {
+    const two = () => ({ ...session(), entries: [...session().entries, { id: 'custom-y', target: { reps: 10 }, sets: [{ w: 40, r: 10, done: false }] }] })
+    useStore.setState({ S: { ...useStore.getState().S, active: two() } })
+    useUI.getState().startRest(90, 0)
+    expect(showWorkoutSet).toHaveBeenLastCalledWith(expect.objectContaining({ idx: 0, detail: '60×8' }), expect.anything())
+    useStore.setState({ S: { ...useStore.getState().S, active: { ...two(), cur: 1 } } })
+    expect(showWorkoutSet).toHaveBeenLastCalledWith(expect.objectContaining({ idx: 1, i: 0, detail: '40×10' }), expect.anything())
+    useStore.setState({ S: { ...useStore.getState().S, active: null } })
+  })
+
   it('does not call the plugin every second while a rest counts down', () => {
     useStore.setState({ S: { ...useStore.getState().S, active: session() } })
     useUI.getState().startRest(90, 0)
