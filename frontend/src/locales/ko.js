@@ -2260,4 +2260,7 @@ export default {
   'Read heart rate from Apple Health': 'Apple 건강에서 심박수 읽기',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': '운동 중 Apple Watch가 기록한 심박수가 운동에 표시됩니다.',
   'Heart rate is read back for your workouts.': '운동의 심박수를 다시 읽어 옵니다.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': '여기서 운동을 시작하면 워치에서도 운동이 시작됩니다: 실시간 심박수, 손목 위의 휴식 타이머.',
+  'Install openGym on your watch from the Watch app on this iPhone.': '이 iPhone의 Watch 앱에서 워치에 openGym을 설치하세요.',
 }

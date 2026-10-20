@@ -22,6 +22,9 @@ const mocks = vi.hoisted(() => {
   state.setReadHr = vi.fn(async on => { state.health = { ...state.health, readHr: on }; return state.health })
   state.menuSheet = vi.fn()
   state.toast = vi.fn()
+  state.watch = { supported: true, paired: false, appInstalled: false, reachable: false }
+  state.watchPref = { useWatch: true, held: {} }
+  state.setUseWatch = vi.fn(async on => { state.watchPref = { ...state.watchPref, useWatch: on }; return state.watchPref })
   return state
 })
 vi.mock('../store/useStore.js', () => {
@@ -55,6 +58,11 @@ vi.mock('../lib/health-sync.js', () => ({
   onHealthChange: () => () => {},
   setReadHr: (...a) => mocks.setReadHr(...a),
 }))
+vi.mock('../lib/watch-link.js', () => ({
+  watchStatus: () => Promise.resolve(mocks.watch),
+  loadWatchPref: () => Promise.resolve(mocks.watchPref),
+  setUseWatch: (...a) => mocks.setUseWatch(...a),
+}))
 vi.mock('./MobileOnboarding.jsx', () => ({ ConnectSheet: () => null }))
 vi.mock('../sheets.jsx', () => ({
   starterPlanSheet: vi.fn(), confirmSheet: vi.fn(), importFromApp: vi.fn(),
@@ -71,7 +79,9 @@ beforeEach(() => {
   mocks.ios = true
   mocks.status = { status: 'available', granted: false }
   mocks.health = { on: false, written: {}, error: null }
-  for (const k of ['enableHealth', 'disableHealth', 'openHealthConnect', 'setReadHr', 'menuSheet', 'toast']) mocks[k].mockClear()
+  mocks.watch = { supported: true, paired: false, appInstalled: false, reachable: false }
+  mocks.watchPref = { useWatch: true, held: {} }
+  for (const k of ['enableHealth', 'disableHealth', 'openHealthConnect', 'setReadHr', 'menuSheet', 'toast', 'setUseWatch']) mocks[k].mockClear()
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)
@@ -159,5 +169,32 @@ describe('Settings - Apple Health', () => {
     expect(mocks.setReadHr).toHaveBeenCalledWith(true)
     expect(hrSwitch().getAttribute('aria-checked')).toBe('true')
     expect(host.textContent).toContain('Heart rate is read back for your workouts.')
+  })
+
+  it('shows the Apple Watch row only with a paired watch', async () => {
+    await mount()
+    expect(row('Apple Watch')).toBeUndefined()
+
+    act(() => root.unmount()); root = createRoot(host)
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: true }
+    await mount()
+    expect(row('Apple Watch').textContent).toContain('Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.')
+  })
+
+  it('turns the watch off and on with its switch', async () => {
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: true }
+    await mount()
+    const watchSwitch = () => row('Apple Watch').querySelector('[role="switch"]')
+    expect(watchSwitch().getAttribute('aria-checked')).toBe('true')
+    await act(async () => { watchSwitch().click() })
+    expect(mocks.setUseWatch).toHaveBeenCalledWith(false)
+    expect(watchSwitch().getAttribute('aria-checked')).toBe('false')
+  })
+
+  it('says how to install the watch app when it is missing, with the switch disabled', async () => {
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: false }
+    await mount()
+    expect(row('Apple Watch').textContent).toContain('Install openGym on your watch from the Watch app on this iPhone.')
+    expect(row('Apple Watch').querySelector('[role="switch"]').disabled).toBe(true)
   })
 })

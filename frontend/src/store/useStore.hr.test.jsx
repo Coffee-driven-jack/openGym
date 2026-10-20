@@ -4,14 +4,15 @@
    brings more samples than the workout already has, and stamped so sync and backups carry it. */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const h = vi.hoisted(() => ({ fetch: null }))
+const h = vi.hoisted(() => ({ fetch: null, watch: null, ui: { toast: () => {}, addRest: () => {}, stopRest: () => {} }, sync: null }))
 vi.mock('../lib/api.js', () => ({ api: vi.fn(), setRemoteAuth: vi.fn() }))
-vi.mock('./useUI.js', () => ({ useUI: { getState: () => ({ toast: vi.fn() }) } }))
+vi.mock('./useUI.js', () => ({ useUI: { getState: () => h.ui } }))
 vi.mock('../lib/health-sync.js', () => ({
   initHealthSync: vi.fn(),
-  syncHealth: vi.fn(async () => null),
+  syncHealth: (...a) => h.sync(...a),
   fetchHeartRate: (...a) => h.fetch(...a),
 }))
+vi.mock('../lib/watch-link.js', () => ({ initWatchLink: opts => { h.watch = opts } }))
 
 import { DEF, useStore } from './useStore.js'
 
@@ -25,6 +26,7 @@ beforeEach(() => {
   localStorage.clear()
   useStore.setState({ user: null, ready: true })
   h.fetch = vi.fn(async () => hr(10))
+  h.sync = vi.fn(async () => null)
 })
 afterEach(() => { localStorage.clear() })
 
@@ -76,5 +78,31 @@ describe('refreshLastHeartRate', () => {
     useStore.setState({ S: { ...clone(DEF), workouts: [workout('old', now - 30 * HOUR), workout('last', now - HOUR, { hr: hr(3) })] } })
     await useStore.getState().refreshLastHeartRate()
     expect(h.fetch).not.toHaveBeenCalled()
+  })
+})
+
+// The watch app (lib/watch-link.js): its end reads the heart rate back at once instead of waiting
+// for the timed reads, a failure lets the Health export write the workout itself, and its rest
+// buttons work the phone's timer.
+describe('the watch', () => {
+  it('reads the heart rate back as soon as the watch saved the workout', async () => {
+    const now = Date.now()
+    useStore.setState({ S: { ...clone(DEF), workouts: [workout('w1', now)] } })
+    await h.watch.onEnded('w1')
+    expect(find('w1').hr).toEqual(hr(10))
+  })
+
+  it('syncs Health again when the watch could not save it', async () => {
+    useStore.setState({ S: { ...clone(DEF), workouts: [] } })
+    await h.watch.onFailed('w1')
+    expect(h.sync).toHaveBeenCalledWith(useStore.getState().S)
+  })
+
+  it('adds 15 s or skips the rest from the wrist', async () => {
+    h.ui = { ...h.ui, addRest: vi.fn(), stopRest: vi.fn() }
+    await h.watch.onRestAction('add15')
+    await h.watch.onRestAction('skip')
+    expect(h.ui.addRest).toHaveBeenCalledWith(15)
+    expect(h.ui.stopRest).toHaveBeenCalledTimes(1)
   })
 })

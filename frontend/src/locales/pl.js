@@ -2260,4 +2260,7 @@ export default {
   'Read heart rate from Apple Health': 'Odczytuj tętno z Apple Health',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'Tętno zapisane przez Apple Watch podczas treningu pojawia się przy treningu.',
   'Heart rate is read back for your workouts.': 'Tętno z twoich treningów jest odczytywane z powrotem.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Rozpoczyna trening na zegarku, gdy zaczynasz go tutaj: tętno na żywo, minutnik przerwy na nadgarstku.',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'Zainstaluj openGym na zegarku w aplikacji Watch na tym iPhonie.',
 }

@@ -2260,4 +2260,7 @@ export default {
   'Read heart rate from Apple Health': 'Nabzı Apple Health’ten oku',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'Apple Watch’unuzun antrenman sırasında kaydettiği nabız antrenmanda görünür.',
   'Heart rate is read back for your workouts.': 'Antrenmanlarınızın nabzı geri okunur.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Burada bir antrenman başlattığınızda saatinizde de başlatır: canlı nabız, bileğinizde dinlenme sayacı.',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'openGym’i bu iPhone’daki Watch uygulamasından saatinize yükleyin.',
 }

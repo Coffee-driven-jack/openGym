@@ -17,6 +17,7 @@ import CustomMediaField from './components/CustomMediaField.jsx'
 import WorkoutMediaSection, { workoutMediaCount } from './components/WorkoutMedia.jsx'
 import { mediaOf, normalizeMediaRef, cleanUrl, workoutMediaOf } from './lib/media-refs.js'
 import { syncMedia } from './lib/media-sync.js'
+import { watchStartSession, watchEndSession } from './lib/watch-link.js'
 import LineChart from './components/LineChart.jsx'
 import Stepper from './components/Stepper.jsx'
 import { durationSheet } from './components/DurationWheel.jsx'
@@ -2792,6 +2793,8 @@ export function beginWorkout(routineIds, bw) {
       workoutView: st.workoutView || 'cards',
     }
   })
+  // The watch app records the session alongside (lib/watch-link.js); nothing waits on it.
+  watchStartSession(S().active)
   useUI.getState().stopRest()
   navToWorkout()
 }
@@ -2813,6 +2816,7 @@ export function repeatWorkout(w, close) {
         workoutView: s.workoutView || 'cards',
       }
     })
+    watchStartSession(S().active)
     useUI.getState().stopRest()
     if (close) closeThenNav(close, '/workout'); else navToWorkout()
     if (skipped) toast(tn('{0} exercise no longer exists and was left out.', '{0} exercises no longer exist and were left out.', skipped))
@@ -3417,13 +3421,15 @@ function doFinishWorkout() {
     // (lib/rotation.js). A planner's queue is left alone: it completes and waits for its writer.
     refillAfter(s, w)
   })
+  if (!past) watchEndSession(A.id)
   useStore.getState().autoBackupNow()
   useUI.getState().stopRest()
   // A hold still counting (a plank left unchecked, then Finish early) goes with the workout, as
   // on Discard: its bar is app-wide and would chime over the summary, and its callback writes
   // into s.active, which is gone. What it held is not logged, like any set left unchecked.
   useUI.getState().stopWork()
-  // The watch's heart rate lands in Health a few seconds after its session ends: read twice.
+  // The watch's heart rate lands in Health a few seconds after its session ends: read twice, and
+  // once more when the watch app says it saved the workout (useStore, initWatchLink).
   if (shown.id != null) {
     const attach = () => useStore.getState().attachHeartRate(shown.id).catch(() => {})
     setTimeout(attach, 8000)

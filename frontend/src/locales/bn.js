@@ -2339,4 +2339,7 @@ export default {
   'Read heart rate from Apple Health': 'Apple Health থেকে হার্ট রেট পড়ুন',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'ওয়ার্কআউটের সময় আপনার Apple Watch যে হার্ট রেট রেকর্ড করে তা ওয়ার্কআউটে দেখায়।',
   'Heart rate is read back for your workouts.': 'আপনার ওয়ার্কআউটের হার্ট রেট ফিরিয়ে পড়া হয়।',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'এখানে ওয়ার্কআউট শুরু করলে আপনার ঘড়িতেও একটি শুরু হয়: লাইভ হার্ট রেট, কবজিতে বিশ্রামের টাইমার।',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'এই iPhone-এর Watch অ্যাপ থেকে আপনার ঘড়িতে openGym ইনস্টল করুন।',
 }

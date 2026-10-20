@@ -1421,6 +1421,9 @@ export const PT_BR_OVERRIDES = {
   'Read heart rate from Apple Health': 'Ler frequência cardíaca do Apple Saúde',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'A frequência cardíaca registrada pelo seu Apple Watch durante um treino aparece no treino.',
   'Heart rate is read back for your workouts.': 'A frequência cardíaca dos seus treinos é lida de volta.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Inicia um treino no seu relógio quando você inicia um aqui: frequência cardíaca ao vivo, timer de descanso no pulso.',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'Instale o openGym no seu relógio pelo app Watch neste iPhone.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

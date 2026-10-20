@@ -2260,4 +2260,7 @@ export default {
   'Read heart rate from Apple Health': 'Ler a frequência cardíaca da Apple Saúde',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'A frequência cardíaca registada pelo seu Apple Watch durante um treino aparece no treino.',
   'Heart rate is read back for your workouts.': 'A frequência cardíaca dos seus treinos é lida de volta.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Inicia um treino no seu relógio quando inicia um aqui: frequência cardíaca em direto, temporizador de descanso no pulso.',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'Instale o openGym no seu relógio a partir da app Watch neste iPhone.',
 }

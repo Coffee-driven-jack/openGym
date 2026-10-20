@@ -2257,4 +2257,7 @@ export default {
   'Read heart rate from Apple Health': 'Читати пульс з Apple Health',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'Пульс, записаний Apple Watch під час тренування, показується в тренуванні.',
   'Heart rate is read back for your workouts.': 'Пульс ваших тренувань зчитується назад.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Запускає тренування на годиннику, коли ви починаєте його тут: пульс наживо, таймер відпочинку на зап’ясті.',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'Встановіть openGym на годинник через програму Watch на цьому iPhone.',
 }

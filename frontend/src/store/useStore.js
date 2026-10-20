@@ -9,6 +9,7 @@ import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, onAppActive, readJsonFile, syncReminder, writeAutoBackup, writeJsonFile } from '../lib/mobile.js'
 import { fetchHeartRate, initHealthSync, syncHealth } from '../lib/health-sync.js'
 import { betterHr } from '../lib/heart-rate.js'
+import { initWatchLink } from '../lib/watch-link.js'
 import { refillIfComplete } from '../lib/rotation.js'
 import { liftLegacy } from '../lib/sync-legacy.js'
 import { mergeStates, localExtras, stampChange, stampWorkout, highestStamp, stampRestore, stampReplace, inUnitOf, keepReset, resetIdsOf, mergeResetIds, entryKey } from '../lib/sync-merge.js'
@@ -475,6 +476,17 @@ export const useStore = create((set, get) => {
 
   initReminderSync(() => get().S)
   initHealthSync(() => get().S, () => get().refreshLastHeartRate())
+  // The watch app: its saved workout carries the heart rate, read back at once; one it could not
+  // save is the Health export's to write after all; its +15 s and Skip work the phone's timer.
+  initWatchLink({
+    getState: () => get().S,
+    onEnded: id => get().attachHeartRate(id).catch(() => {}),
+    onFailed: () => syncHealth(get().S).catch(() => {}),
+    onRestAction: action => import('./useUI.js').then(({ useUI }) => {
+      if (action === 'add15') useUI.getState().addRest(15)
+      else if (action === 'skip') useUI.getState().stopRest()
+    }).catch(() => {}),
+  })
 
   // Mobile build: the file mirror, and beside it whose copy it is and which one (its `_ts`) —
   // restoreFromMirror takes the file back only for that account, and only while the two agree,

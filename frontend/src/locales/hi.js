@@ -2260,4 +2260,7 @@ export default {
   'Read heart rate from Apple Health': 'Apple Health से हृदय गति पढ़ें',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'वर्कआउट के दौरान आपकी Apple Watch जो हृदय गति रिकॉर्ड करती है, वह वर्कआउट पर दिखती है।',
   'Heart rate is read back for your workouts.': 'आपके वर्कआउट की हृदय गति वापस पढ़ी जाती है।',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'यहाँ वर्कआउट शुरू करने पर आपकी घड़ी पर भी एक शुरू हो जाता है: लाइव हृदय गति, कलाई पर आराम टाइमर।',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'इस iPhone पर Watch ऐप से अपनी घड़ी पर openGym इंस्टॉल करें।',
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, forwardRef, useSyncExternalStore } from 'r
 import { useNavigate, useParams, useLocation, Navigate } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
 import { healthStatus, loadHealth, enableHealth, disableHealth, openHealthConnect, onHealthChange, setReadHr } from '../lib/health-sync.js'
+import { watchStatus, loadWatchPref, setUseWatch } from '../lib/watch-link.js'
 import { workoutControls } from '../lib/workout-controls.js'
 import { speedUnitOf } from '../lib/speed.js'
 import { formulaOf, FORMULA_NAMES } from '../lib/onerm.js'
@@ -1476,6 +1477,16 @@ function HealthCard({ S, toast, platform }) {
     return () => { gone = true; off() }
   }, [])
   const ios = platform === 'ios'
+  // The Apple Watch app (lib/watch-link.js): asked once, when the card opens on iOS.
+  const [watch, setWatch] = useState(null)
+  useEffect(() => {
+    if (!ios) return undefined
+    let gone = false
+    Promise.all([watchStatus(), loadWatchPref()])
+      .then(([w, f]) => { if (!gone) setWatch({ ...w, useWatch: f.useWatch }) })
+      .catch(() => {})
+    return () => { gone = true }
+  }, [ios])
   if (!st || !h || st.status === 'unsupported') return null
   if (ios && st.status !== 'available') return null
   const c = healthCopy(platform)
@@ -1533,6 +1544,13 @@ function HealthCard({ S, toast, platform }) {
       </Row>}
       {h.on && <Row icon="list" iconTint="var(--blue)" title={c.open}
         accessory="chevron" onClick={() => openHealthConnect(ios ? 'health' : undefined).catch(() => {})} />}
+      {ios && watch?.paired && <Row icon="stopwatch" iconTint="var(--red)" title={t('Apple Watch')}
+        subtitle={watch.appInstalled
+          ? t('Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.')
+          : t('Install openGym on your watch from the Watch app on this iPhone.')}>
+        <Switch checked={watch.appInstalled && !!watch.useWatch} disabled={!watch.appInstalled}
+          onChange={v => setUseWatch(v).then(f => setWatch(w => ({ ...w, useWatch: f.useWatch }))).catch(() => {})} />
+      </Row>}
     </Section>
   )
 }

@@ -2263,4 +2263,7 @@ export default {
   'Read heart rate from Apple Health': 'Pulzus olvasása az Apple Healthből',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'Az Apple Watch által edzés közben rögzített pulzus megjelenik az edzésnél.',
   'Heart rate is read back for your workouts.': 'Az edzéseid pulzusát az openGym visszaolvassa.',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Edzést indít az órádon, amikor itt elindítasz egyet: élő pulzus, pihenőidő-számláló a csuklódon.',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'Telepítsd az openGymet az órádra az iPhone Watch appjából.',
 }

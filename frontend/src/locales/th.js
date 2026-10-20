@@ -2271,4 +2271,7 @@ export default {
   'Read heart rate from Apple Health': 'อ่านอัตราการเต้นของหัวใจจาก Apple Health',
   'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'อัตราการเต้นของหัวใจที่ Apple Watch บันทึกระหว่างออกกำลังกายจะแสดงในการออกกำลังกายนั้น',
   'Heart rate is read back for your workouts.': 'ระบบจะอ่านอัตราการเต้นของหัวใจของการออกกำลังกายกลับมา',
+  'Apple Watch': 'Apple Watch',
+  'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'เริ่มการออกกำลังกายบนนาฬิกาเมื่อคุณเริ่มที่นี่: อัตราการเต้นของหัวใจแบบสด ตัวจับเวลาพักบนข้อมือ',
+  'Install openGym on your watch from the Watch app on this iPhone.': 'ติดตั้ง openGym บนนาฬิกาจากแอป Watch บน iPhone เครื่องนี้',
 }
