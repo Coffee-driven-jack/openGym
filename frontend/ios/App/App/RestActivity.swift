@@ -72,19 +72,36 @@ enum RestEnd {
 /// notification sends (RestAlertPlugin.emit): type, endsAt and the times in milliseconds.
 enum RestEvents {
     static let name = Notification.Name("opengym.rest.event")
-    /// The last event not yet handed to the page: a button pressed while the app was not running
-    /// at all, or before the plugin was up, still reaches it on the next launch.
-    static let pendingKey = "opengym.rest.pendingEvent"
+    /// The events not yet handed to the page, oldest first: buttons pressed while the app was not
+    /// running at all, or before the plugin was up, still reach it on the next launch — every one
+    /// of them, in order.
+    static let pendingKey = "opengym.rest.pendingEvents"
 
     static func emit(_ type: String, endsAt: Date?, totalSec: Double, leftSec: Double, paused: Bool) {
-        let data: [String: Any] = [
+        post([
             "type": type,
             "endsAt": endsAt.map { ($0.timeIntervalSince1970 * 1000).rounded() } ?? 0,
             "totalMs": (totalSec * 1000).rounded(),
             "leftMs": (leftSec * 1000).rounded(),
             "paused": paused,
-        ]
-        UserDefaults.standard.set(data, forKey: pendingKey)
+        ])
+    }
+
+    /// The workout card's Done, naming the set the card showed (lib/workout-activity.js).
+    static func emitSet(_ action: String, idx: Int, i: Int) {
+        post(["type": "set", "action": action, "idx": idx, "i": i])
+    }
+
+    static func takePending() -> [[String: Any]] {
+        let all = UserDefaults.standard.array(forKey: pendingKey) as? [[String: Any]] ?? []
+        UserDefaults.standard.removeObject(forKey: pendingKey)
+        return all
+    }
+
+    private static func post(_ data: [String: Any]) {
+        var all = UserDefaults.standard.array(forKey: pendingKey) as? [[String: Any]] ?? []
+        all.append(data)
+        UserDefaults.standard.set(Array(all.suffix(50)), forKey: pendingKey)
         NotificationCenter.default.post(name: name, object: nil, userInfo: data)
     }
 }
@@ -92,7 +109,17 @@ enum RestEvents {
 #if canImport(ActivityKit)
 @available(iOS 16.2, *)
 struct RestActivityAttributes: ActivityAttributes, Hashable {
+    /// One Live Activity for the whole workout: up from the start of the session with the set to
+    /// do now, taken over by each rest's countdown and handed back when the rest is over or
+    /// skipped. A rest outside a workout has it to itself and takes it down at its end.
     struct ContentState: Codable, Hashable {
+        /// A rest is counting (or held, or just over); false shows the workout and its set.
+        var resting: Bool
+        /// Up for a workout (lib/workout-activity.js), not only for one rest.
+        var inWorkout: Bool
+        /// The routine, and when the session started (the elapsed clock).
+        var workoutTitle: String
+        var startedAt: Date?
         /// The end of the countdown while it runs.
         var endsAt: Date
         /// The whole rest, for the bar; ±15 s moves it with the time left, as on Android.
@@ -103,17 +130,32 @@ struct RestActivityAttributes: ActivityAttributes, Hashable {
         /// ARGB, as the page sends it (lib/rest-alert.js accentColors).
         var accent: UInt32
         var ink: UInt32
-        /// The set this rest is for (lib/rest-up-next.js): "Bench Press", "Set 3/4", "60×8".
-        /// Empty after the last set of the workout.
+        /// The set to do now, which during a rest is the one it is for (lib/rest-up-next.js):
+        /// "Bench Press", "Set 3/4", "60×8". Empty once every set is ticked.
         var nextName: String
         var nextSet: String
         var nextDetail: String
+        /// Where that set is in the session, for Done; -1 when there is none.
+        var setIdx: Int
+        var setI: Int
+        /// Done was pressed and the page has not yet shown the next set.
+        var pendingDone: Bool
 
         func left(at now: Date = Date()) -> Double { paused ? leftSec : max(0, endsAt.timeIntervalSince(now)) }
+
+        /// The countdown's end is what makes it stale; nothing else ages.
+        var staleDate: Date? { resting && !paused ? endsAt : nil }
+
+        /// Back to the workout after a rest: the clock is gone, the set stays.
+        mutating func endRest() {
+            resting = false
+            paused = false
+            leftSec = 0
+        }
     }
 
     // The labels arrive translated from the page; they are fixed for one Live Activity, and a
-    // rest that changes them (a language switch) starts a new one.
+    // change to them (a language switch) starts a new one.
     var title: String
     var doneTitle: String
     var pause: String
@@ -121,6 +163,7 @@ struct RestActivityAttributes: ActivityAttributes, Hashable {
     var minus: String
     var plus: String
     var skip: String
+    var done: String
     var sound: Bool
 }
 
@@ -130,11 +173,11 @@ enum RestLive {
 
     static var current: Activity<RestActivityAttributes>? { Activity<RestActivityAttributes>.activities.first }
 
-    /// Shows this rest: moves the Live Activity already up when its labels match, or replaces it.
-    /// False when Live Activities are off for the app; the notification is booked either way.
+    /// Shows this state: moves the Live Activity already up when its labels match, or replaces it.
+    /// False when Live Activities are off for the app; a rest's notification is booked either way.
     @discardableResult
     static func show(_ attributes: RestActivityAttributes, _ state: State) async -> Bool {
-        let content = ActivityContent(state: state, staleDate: state.paused ? nil : state.endsAt)
+        let content = ActivityContent(state: state, staleDate: state.staleDate)
         let all = Activity<RestActivityAttributes>.activities
         if let a = all.first, a.attributes == attributes, a.activityState == .active {
             for other in all.dropFirst() { await other.end(nil, dismissalPolicy: .immediate) }
@@ -155,17 +198,43 @@ enum RestLive {
         guard let a = current else { return }
         var s = a.content.state
         change(&s)
-        await a.update(ActivityContent(state: s, staleDate: s.paused ? nil : s.endsAt))
+        await a.update(ActivityContent(state: s, staleDate: s.staleDate))
     }
 
     static func endAll() async {
         for a in Activity<RestActivityAttributes>.activities { await a.end(nil, dismissalPolicy: .immediate) }
     }
 
-    // ---- the buttons ----
+    /// The rest is over, skipped or called off: a workout's card goes back to its set, a lone
+    /// rest's card goes away.
+    static func finishRest() async {
+        guard let a = current else { return }
+        var s = a.content.state
+        if s.inWorkout {
+            s.endRest()
+            await a.update(ActivityContent(state: s, staleDate: nil))
+        } else {
+            await endAll()
+        }
+    }
+
+    // ---- the workout card's buttons ----
+
+    /// Ticks the set the card shows. The page moves the card on to the next set (and a rest);
+    /// until it does, the card shows this one as done.
+    static func markDone() async {
+        guard let a = current else { return }
+        var s = a.content.state
+        guard !s.resting, !s.pendingDone, s.setIdx >= 0 else { return }
+        s.pendingDone = true
+        await a.update(ActivityContent(state: s, staleDate: s.staleDate))
+        RestEvents.emitSet("done", idx: s.setIdx, i: s.setI)
+    }
+
+    // ---- the rest's buttons ----
 
     static func togglePause() async {
-        guard let a = current else { return }
+        guard let a = current, a.content.state.resting else { return }
         var s = a.content.state
         let now = Date()
         if s.paused {
@@ -179,12 +248,12 @@ enum RestLive {
             s.paused = true
             RestEnd.cancel()
         }
-        await a.update(ActivityContent(state: s, staleDate: s.paused ? nil : s.endsAt))
+        await a.update(ActivityContent(state: s, staleDate: s.staleDate))
         RestEvents.emit("pause", endsAt: s.paused ? nil : s.endsAt, totalSec: s.totalSec, leftSec: s.left(at: now), paused: s.paused)
     }
 
     static func nudge(_ delta: Double) async {
-        guard let a = current else { return }
+        guard let a = current, a.content.state.resting else { return }
         var s = a.content.state
         let now = Date()
         // endsAt may already be behind us when +15 lands on the last second: count from now.
@@ -197,13 +266,13 @@ enum RestLive {
             s.endsAt = now.addingTimeInterval(left)
             RestEnd.book(at: s.endsAt, title: a.attributes.doneTitle, sound: a.attributes.sound)
         }
-        await a.update(ActivityContent(state: s, staleDate: s.paused ? nil : s.endsAt))
+        await a.update(ActivityContent(state: s, staleDate: s.staleDate))
         RestEvents.emit("adjust", endsAt: s.paused ? nil : s.endsAt, totalSec: s.totalSec, leftSec: left, paused: s.paused)
     }
 
     static func skip() async {
         RestEnd.cancel()
-        await endAll()
+        await finishRest()
         RestEvents.emit("skip", endsAt: nil, totalSec: 0, leftSec: 0, paused: false)
     }
 }
@@ -233,6 +302,17 @@ struct RestNudgeIntent: LiveActivityIntent {
 
     func perform() async throws -> some IntentResult {
         await RestLive.nudge(Double(seconds))
+        return .result()
+    }
+}
+
+@available(iOS 17.0, *)
+struct SetDoneIntent: LiveActivityIntent {
+    static var title: LocalizedStringResource = "Mark the set done"
+    static var isDiscoverable = false
+
+    func perform() async throws -> some IntentResult {
+        await RestLive.markDone()
         return .result()
     }
 }

@@ -356,7 +356,10 @@ membership, the distribution certificate and profile as protected file variables
 - On iOS (16.2 and later) the rest countdown is a Live Activity on the Lock Screen and in the
   Dynamic Island, with the Android card's Pause, ±15 s and Skip buttons from iOS 17, and under
   the clock the set the rest is for — "Bench Press · Set 3/4 · 60×8", worked out from the session
-  by `src/lib/rest-up-next.js`. It is drawn
+  by `src/lib/rest-up-next.js`. Between rests the same Live Activity shows the workout itself, up
+  from the moment the session starts: the routine, the time since it started and the set to do
+  now, with Done to tick it (`src/lib/workout-activity.js`; Done goes
+  through the workout screen's own tick, so the rest and the rest of the flow follow). It is drawn
   by the `RestWidget` app extension (`frontend/ios/App/RestWidget`, bundle id
   `ch.duartesantos.opengym.RestWidget`), which signing has to cover alongside the app; the state
   and the buttons' intents are in `App/RestActivity.swift`, the calls from the page in

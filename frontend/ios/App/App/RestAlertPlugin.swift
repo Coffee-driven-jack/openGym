@@ -20,6 +20,8 @@ import ActivityKit
  *   await RestAlert.hold({ leftMs, totalMs });
  *   await RestAlert.setAccent({ accent, ink });
  *   await RestAlert.cancel({});
+ *   await RestAlert.showSet({ workoutTitle, startedAt, nextName, nextSet, nextDetail, accent, ink, …labels });
+ *   await RestAlert.endWorkout({});
  *   RestAlert.addListener('rest', ev => …)   // what the Live Activity's buttons did
  */
 @objc(RestAlertPlugin)
@@ -31,6 +33,8 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "cancel", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "hold", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setAccent", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "showSet", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "endWorkout", returnType: CAPPluginReturnPromise),
     ]
 
     /// With the app in front, the end of the rest takes the Live Activity down: the page plays
@@ -47,9 +51,8 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
             RestEnd.appInFront = UIApplication.shared.applicationState == .active
             if RestEnd.appInFront { self.onActive() }
         }
-        // A button pressed while the app was not running: retained until the page listens.
-        if let pending = UserDefaults.standard.dictionary(forKey: RestEvents.pendingKey) {
-            UserDefaults.standard.removeObject(forKey: RestEvents.pendingKey)
+        // Buttons pressed while the app was not running: retained until the page listens.
+        for pending in RestEvents.takePending() {
             notifyListeners("rest", data: pending, retainUntilConsumed: true)
         }
     }
@@ -59,7 +62,8 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc private func onRestEvent(_ note: Notification) {
-        UserDefaults.standard.removeObject(forKey: RestEvents.pendingKey)
+        // Up and listening: this event goes now, and the queue held for a later launch is not needed.
+        _ = RestEvents.takePending()
         notifyListeners("rest", data: note.userInfo as? [String: Any] ?? [:], retainUntilConsumed: true)
     }
 
@@ -68,9 +72,9 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
         RestEnd.withdraw()
         guard #available(iOS 16.2, *), let a = RestLive.current else { return }
         let s = a.content.state
-        if s.paused { return }
+        if !s.resting || s.paused { return }
         if s.endsAt <= Date() {
-            Task { await RestLive.endAll() }
+            Task { await RestLive.finishRest() }
         } else {
             armEndTimer(s.endsAt)
         }
@@ -92,13 +96,28 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
                 guard #available(iOS 16.2, *) else { return }
                 Task {
                     // Only if this is still the rest that was running: a pause or ±15 s moved it.
-                    guard let s = RestLive.current?.content.state, !s.paused, s.endsAt <= Date().addingTimeInterval(0.5) else { return }
-                    await RestLive.endAll()
+                    guard let s = RestLive.current?.content.state, s.resting, !s.paused, s.endsAt <= Date().addingTimeInterval(0.5) else { return }
+                    await RestLive.finishRest()
                 }
             }
             RunLoop.main.add(t, forMode: .common)
             self.endTimer = t
         }
+    }
+
+    @available(iOS 16.2, *)
+    private static func attributes(_ call: CAPPluginCall) -> RestActivityAttributes {
+        RestActivityAttributes(
+            title: call.getString("countdownTitle") ?? "Rest",
+            doneTitle: call.getString("title") ?? "Rest over",
+            pause: call.getString("pause") ?? "Pause",
+            resume: call.getString("resume") ?? "Resume",
+            minus: call.getString("minus") ?? "\u{2212} 15s",
+            plus: call.getString("plus") ?? "+ 15s",
+            skip: call.getString("skip") ?? "Skip",
+            done: call.getString("done") ?? "Done",
+            sound: call.getBool("sound") ?? true
+        )
     }
 
     @objc func schedule(_ call: CAPPluginCall) {
@@ -118,17 +137,14 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
             call.resolve(["live": false])
             return
         }
-        let attributes = RestActivityAttributes(
-            title: call.getString("countdownTitle") ?? "Rest",
-            doneTitle: title,
-            pause: call.getString("pause") ?? "Pause",
-            resume: call.getString("resume") ?? "Resume",
-            minus: call.getString("minus") ?? "\u{2212} 15s",
-            plus: call.getString("plus") ?? "+ 15s",
-            skip: call.getString("skip") ?? "Skip",
-            sound: sound
-        )
+        // A rest inside a workout keeps the workout's card: its title and clock come back after.
+        let workout = RestLive.current?.content.state
+        let inWorkout = workout?.inWorkout ?? false
         let state = RestActivityAttributes.ContentState(
+            resting: true,
+            inWorkout: inWorkout,
+            workoutTitle: inWorkout ? workout?.workoutTitle ?? "" : "",
+            startedAt: inWorkout ? workout?.startedAt : nil,
             endsAt: at,
             totalSec: totalSec,
             leftSec: at.timeIntervalSinceNow,
@@ -137,15 +153,87 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
             ink: Self.color(call, "ink", 0xFF000000),
             nextName: call.getString("nextName") ?? "",
             nextSet: call.getString("nextSet") ?? "",
-            nextDetail: call.getString("nextDetail") ?? ""
+            nextDetail: call.getString("nextDetail") ?? "",
+            // The set the rest is for is the one the workout card already shows (the page brings it
+            // just before the rest starts): its place carries over, so Done is there again when
+            // the rest is over.
+            setIdx: inWorkout ? workout?.setIdx ?? -1 : -1,
+            setI: inWorkout ? workout?.setI ?? -1 : -1,
+            pendingDone: false
         )
         Task {
-            let live = await RestLive.show(attributes, state)
+            let live = await RestLive.show(Self.attributes(call), state)
             call.resolve(["live": live])
         }
     }
 
+    /// Skip, Dismiss, a rest replaced or switched off. A workout's card goes back to its set.
     @objc func cancel(_ call: CAPPluginCall) {
+        RestEnd.cancel()
+        armEndTimer(nil)
+        guard #available(iOS 16.2, *) else { call.resolve(); return }
+        Task {
+            await RestLive.finishRest()
+            call.resolve()
+        }
+    }
+
+    /// The workout (lib/workout-activity.js): its title, start and the set to do now. Put up when
+    /// a session starts; during a rest only the set and the title are brought up to date, and the
+    /// countdown stays.
+    @objc func showSet(_ call: CAPPluginCall) {
+        guard #available(iOS 16.2, *) else { call.resolve(["live": false]); return }
+        let title = call.getString("workoutTitle") ?? ""
+        let startedMs = call.getDouble("startedAt") ?? 0
+        let startedAt = startedMs > 0 ? Date(timeIntervalSince1970: startedMs / 1000) : nil
+        let name = call.getString("nextName") ?? ""
+        let set = call.getString("nextSet") ?? ""
+        let detail = call.getString("nextDetail") ?? ""
+        let setIdx = call.getInt("setIdx") ?? -1
+        let setI = call.getInt("setI") ?? -1
+        let accent = Self.color(call, "accent", 0xFF30D158)
+        let ink = Self.color(call, "ink", 0xFF000000)
+        Task {
+            if let a = RestLive.current, a.activityState == .active, a.content.state.resting {
+                await RestLive.update { s in
+                    s.inWorkout = true
+                    s.workoutTitle = title
+                    s.startedAt = startedAt
+                    s.nextName = name
+                    s.nextSet = set
+                    s.nextDetail = detail
+                    s.setIdx = setIdx
+                    s.setI = setI
+                    s.pendingDone = false
+                }
+                call.resolve(["live": true])
+                return
+            }
+            let state = RestActivityAttributes.ContentState(
+                resting: false,
+                inWorkout: true,
+                workoutTitle: title,
+                startedAt: startedAt,
+                endsAt: Date(),
+                totalSec: 1,
+                leftSec: 0,
+                paused: false,
+                accent: accent,
+                ink: ink,
+                nextName: name,
+                nextSet: set,
+                nextDetail: detail,
+                setIdx: setIdx,
+                setI: setI,
+                pendingDone: false
+            )
+            let live = await RestLive.show(Self.attributes(call), state)
+            call.resolve(["live": live])
+        }
+    }
+
+    /// The workout finished or was discarded: its card goes, with any rest still on it.
+    @objc func endWorkout(_ call: CAPPluginCall) {
         RestEnd.cancel()
         armEndTimer(nil)
         guard #available(iOS 16.2, *) else { call.resolve(); return }
@@ -165,6 +253,7 @@ public class RestAlertPlugin: CAPPlugin, CAPBridgedPlugin {
         guard #available(iOS 16.2, *) else { call.resolve(); return }
         Task {
             await RestLive.update { s in
+                guard s.resting else { return }
                 s.paused = true
                 s.leftSec = leftSec
                 s.totalSec = totalSec

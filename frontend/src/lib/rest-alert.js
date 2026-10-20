@@ -50,6 +50,8 @@ export function buildRestAlert({ at, title, countdownTitle, totalSec, accent, so
     minus: '− 15s',
     plus: '+ 15s',
     skip: t('Skip'),
+    // The workout card's tick (iOS); one of the Live Activity's fixed labels like the rest's.
+    done: t('Done'),
     accent: colors.accent,
     ink: colors.ink,
     totalMs,
@@ -260,6 +262,7 @@ async function deliver(alert) {
     minus: alert.minus,
     plus: alert.plus,
     skip: alert.skip,
+    done: alert.done,
     accent: alert.accent,
     ink: alert.ink,
     nextName: alert.nextName,
@@ -272,4 +275,52 @@ async function deliver(alert) {
 async function cancelDelivered() {
   const p = await restPlugin()
   if (p) await p.RestAlert.cancel({ id: REST_ALERT_ID })
+}
+
+// The workout on the iOS Lock Screen between rests (lib/workout-activity.js): the routine, the
+// time since it started and the set to do now. Up from the moment the session starts; a rest
+// takes the same Live Activity over and hands it back when it is over or skipped. iOS only — the
+// Android notification is the rest's alone.
+//
+// The rest's labels ride along: they are the Live Activity's fixed part, and a rest that brought
+// different ones would replace the card instead of taking it over.
+export function showWorkoutSet(info, { accent: accentKey, sound = true } = {}) {
+  if (!MOBILE || !info) return
+  const { accent, ink } = accentColors(accentKey)
+  const labels = buildRestAlert({ at: Date.now() + 60_000, sound })
+  enqueue(async () => {
+    const p = await restPlugin()
+    if (p?.platform !== 'ios') return
+    await p.RestAlert.showSet({
+      title: labels.title,
+      countdownTitle: labels.countdownTitle,
+      pause: labels.pause,
+      resume: labels.resume,
+      minus: labels.minus,
+      plus: labels.plus,
+      skip: labels.skip,
+      done: labels.done,
+      sound: labels.sound,
+      workoutTitle: info.title,
+      startedAt: info.startedAt || 0,
+      nextName: info.name,
+      nextSet: info.set,
+      nextDetail: info.detail,
+      // Where the set is, for Done.
+      setIdx: info.idx ?? -1,
+      setI: info.i ?? -1,
+      accent,
+      ink,
+    })
+  })
+}
+
+// The workout finished or was thrown away: its Live Activity goes, rest and all.
+export function endWorkoutActivity() {
+  if (!MOBILE) return
+  enqueue(async () => {
+    const p = await restPlugin()
+    if (p?.platform !== 'ios') return
+    await p.RestAlert.endWorkout()
+  })
 }
