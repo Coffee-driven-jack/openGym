@@ -7,11 +7,16 @@
 // a shrinking bar. The lock screen shows it only when notifications are allowed and the
 // system is set to show them there.
 //
+// iOS suspends the WebView the same way. There the same plugin calls drive a Live Activity —
+// the countdown on the Lock Screen and in the Dynamic Island, with the same buttons from iOS 17
+// (ios/App/App/RestAlertPlugin.swift, drawn by the RestWidget extension) — and a local
+// notification for the end. The channel and visibility fields are Android's; iOS ignores them.
+//
 // The web build keeps Web Push (useUI). This file no-ops there; MOBILE is a build-time flag.
 import { t } from './i18n-core.js'
 import { argb } from './format.js'
 import { accentPair } from './accent.js'
-import { MOBILE, isAndroid } from './mobile.js'
+import { MOBILE } from './mobile.js'
 import { REST_SOUNDS } from './rest-sounds.js'
 
 export const REST_ALERT_ID = 42
@@ -29,7 +34,7 @@ export function accentColors(key) {
   return { accent: argb(accent), ink: argb(ink) }
 }
 
-export function buildRestAlert({ at, title, countdownTitle, totalSec, accent, sound = true, classic = false, tone = null, vibrate = true, alarmBuzz = false, now = Date.now() } = {}) {
+export function buildRestAlert({ at, title, countdownTitle, totalSec, accent, sound = true, classic = false, tone = null, vibrate = true, alarmBuzz = false, next = null, now = Date.now() } = {}) {
   if (typeof at !== 'number' || !(at > now)) return null
   // Settings → Sound (#306): one of lib/sound.js REST_SOUNDS; without one, `classic` decides, as before.
   const kind = Object.hasOwn(REST_SOUNDS, tone) ? tone : classic === true ? 'classic' : 'chime'
@@ -63,6 +68,11 @@ export function buildRestAlert({ at, title, countdownTitle, totalSec, accent, so
     localOnly: false,
     visibility: 'public',
     importance: 'high',
+    // The set this rest is for (lib/rest-up-next.js), shown under the clock on iOS. Empty strings
+    // when nothing is left; Android does not read them yet.
+    nextName: next?.name || '',
+    nextSet: next?.set || '',
+    nextDetail: next?.detail || '',
   }
 }
 
@@ -81,21 +91,29 @@ const enqueue = fn => {
 // The native plugin, registered once: registerPlugin() warns on every call after the first. It
 // travels inside an object because a Capacitor plugin proxy answers `then` with a native call that
 // never settles, so a promise resolved with the bare proxy hangs for good (the Coach hang, #42).
-// Anything but the Android app gets null and registers nothing: iOS has no RestAlert, and every
-// call to it there, addListener included, rejects.
+// Anything but the Android or iOS app gets null and registers nothing: there is no RestAlert
+// there, and every call to it, addListener included, would reject.
 let pluginP = null
 const restPlugin = () => pluginP || (pluginP = (async () => {
-  if (!(await isAndroid())) return null
+  const platform = await nativePlatform()
+  if (platform !== 'android' && platform !== 'ios') return null
   const { registerPlugin } = await import('@capacitor/core')
-  return { RestAlert: registerPlugin('RestAlert') }
+  return { RestAlert: registerPlugin('RestAlert'), platform }
 })().catch(() => null))
 
-// Resolves true only when an Android alarm was scheduled. Callers use false as
-// "fall back to the server push" — web, iOS, and a failed schedule.
+async function nativePlatform() {
+  if (!MOBILE) return 'web'
+  const { Capacitor } = await import('@capacitor/core')
+  return Capacitor.getPlatform()
+}
+
+// Resolves true only when the native side booked the end (an Android alarm, an iOS notification
+// and Live Activity). Callers use false as "fall back to the server push" — web, and a failed
+// schedule.
 export function armRestAlert(at, opts = {}) {
   if (!MOBILE) return Promise.resolve(false)
   const mine = ++token
-  const alert = buildRestAlert({ at, title: opts.title, countdownTitle: opts.countdownTitle, totalSec: opts.totalSec, accent: opts.accent, sound: opts.sound, classic: opts.classic === true, tone: opts.tone, vibrate: opts.vibrate !== false, alarmBuzz: !!opts.alarmBuzz })
+  const alert = buildRestAlert({ at, title: opts.title, countdownTitle: opts.countdownTitle, totalSec: opts.totalSec, accent: opts.accent, sound: opts.sound, classic: opts.classic === true, tone: opts.tone, vibrate: opts.vibrate !== false, alarmBuzz: !!opts.alarmBuzz, next: opts.next })
   if (!alert) return Promise.resolve(false)
   // Outside the chain and never awaited: the alarm, its tone and the alarm buzz do not need the
   // notification permission, and a dialog left open while the phone is put away must not hold
@@ -105,7 +123,7 @@ export function armRestAlert(at, opts = {}) {
     let kind = 'failed'
     try { kind = await deliver(alert) } catch { kind = 'failed' }
     if (mine !== token) return false
-    return kind === 'android'
+    return kind === 'android' || kind === 'ios'
   })
 }
 
@@ -133,8 +151,8 @@ export function holdRestAlert(leftSec, totalSec) {
 let onNativeRest = null
 export function bindNativeRest(cb) { onNativeRest = cb }
 
-// Caught, and only on Android: in the iOS app this listener used to reject at startup with
-// nobody to catch it.
+// Caught, and only where the plugin exists: before iOS had one, this listener rejected there at
+// startup with nobody to catch it.
 if (MOBILE) {
   restPlugin()
     .then(p => p && p.RestAlert.addListener('rest', ev => { if (onNativeRest) onNativeRest(ev) }))
@@ -149,7 +167,7 @@ export function buzzAsAlarm(pattern) {
   const p = Array.isArray(pattern) ? pattern.filter(n => Number.isFinite(n) && n >= 0).map(Math.round) : (Number.isFinite(pattern) && pattern > 0 ? [Math.round(pattern)] : [])
   if (!p.length) return Promise.resolve(false)
   return restPlugin()
-    .then(plugin => (plugin ? plugin.RestAlert.buzz({ pattern: p }).then(() => true) : false))
+    .then(plugin => (plugin?.platform === 'android' ? plugin.RestAlert.buzz({ pattern: p }).then(() => true) : false))
     .catch(() => false)
 }
 
@@ -159,7 +177,7 @@ export function buzzAsAlarm(pattern) {
 export function toneNative(kind) {
   if (!MOBILE) return Promise.resolve(false)
   return restPlugin()
-    .then(plugin => (plugin ? plugin.RestAlert.tone({ kind: String(kind || 'chime') }).then(() => true) : false))
+    .then(plugin => (plugin?.platform === 'android' ? plugin.RestAlert.tone({ kind: String(kind || 'chime') }).then(() => true) : false))
     .catch(() => false)
 }
 
@@ -185,7 +203,10 @@ export function askNotifPermissionOnce() {
   if (askP) return askP
   askP = (async () => {
     try {
-      if (!(await isAndroid())) return false
+      // iOS too: its end-of-rest notification (ios/App/App/RestAlertPlugin.swift) needs the
+      // permission as much as Android's card does.
+      const platform = await nativePlatform()
+      if (platform !== 'android' && platform !== 'ios') return false
       const { LocalNotifications } = await import('@capacitor/local-notifications')
       const perm = await LocalNotifications.checkPermissions()
       if (perm.display === 'granted') return true
@@ -241,8 +262,11 @@ async function deliver(alert) {
     skip: alert.skip,
     accent: alert.accent,
     ink: alert.ink,
+    nextName: alert.nextName,
+    nextSet: alert.nextSet,
+    nextDetail: alert.nextDetail,
   })
-  return 'android'
+  return p.platform
 }
 
 async function cancelDelivered() {

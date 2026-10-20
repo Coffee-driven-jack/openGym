@@ -61,6 +61,20 @@ describe('the rest the app starts, pauses and ends', () => {
     expect(armRestAlert).toHaveBeenLastCalledWith(second, expect.objectContaining({ totalSec: 105, sound: true }))
   })
 
+  // The iOS Lock Screen shows the set the rest is for under the clock (lib/rest-up-next.js).
+  it('tells the alert which set comes next, and nothing outside a workout', () => {
+    useStore.setState({ S: { ...useStore.getState().S, active: { cur: 0, entries: [
+      { id: 'custom-x', target: { reps: 8 }, sets: [{ w: 60, r: 8, done: true }, { w: 62.5, r: 8, done: false }] },
+    ] } } })
+    useUI.getState().startRest(90, 0)
+    expect(armRestAlert).toHaveBeenLastCalledWith(expect.any(Number), expect.objectContaining({
+      next: expect.objectContaining({ set: 'Set 2/2', detail: '62.5×8' }),
+    }))
+    useStore.setState({ S: { ...useStore.getState().S, active: null } })
+    useUI.getState().startRest(90)
+    expect(armRestAlert).toHaveBeenLastCalledWith(expect.any(Number), expect.objectContaining({ next: null }))
+  })
+
   it('holds the notification when paused in the app and books the new end on resume', () => {
     useUI.getState().startRest(90)
     vi.advanceTimersByTime(30_000)

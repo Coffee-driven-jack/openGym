@@ -353,3 +353,13 @@ membership, the distribution certificate and profile as protected file variables
   it: a foreground service (`specialUse`) keeps the countdown in the notification and holds a
   wake lock until the end, so the end of a rest sounds on time with the screen locked; the
   rest-over alarm is only its fallback.
+- On iOS (16.2 and later) the rest countdown is a Live Activity on the Lock Screen and in the
+  Dynamic Island, with the Android card's Pause, ±15 s and Skip buttons from iOS 17, and under
+  the clock the set the rest is for — "Bench Press · Set 3/4 · 60×8", worked out from the session
+  by `src/lib/rest-up-next.js`. It is drawn
+  by the `RestWidget` app extension (`frontend/ios/App/RestWidget`, bundle id
+  `ch.duartesantos.opengym.RestWidget`), which signing has to cover alongside the app; the state
+  and the buttons' intents are in `App/RestActivity.swift`, the calls from the page in
+  `App/RestAlertPlugin.swift`. The end of the rest is a local notification booked while the app
+  is away — with the app in front the page plays it. Live Activities can be switched off per app
+  in Settings; the notification fires either way.
