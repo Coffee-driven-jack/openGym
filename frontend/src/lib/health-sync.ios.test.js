@@ -170,3 +170,33 @@ describe('reading heart rate back', () => {
     expect(hrCalls()).toEqual([])
   })
 })
+
+// The watch app saves the workout it recorded under the same id (lib/watch-link.js): the phone
+// leaves that one to it, and writes it after all when the watch gave up or never answered.
+describe('a workout the watch records', () => {
+  const watchFile = held => h.files.set('opengym-watch.json', JSON.stringify({ useWatch: true, held }))
+  const ids = () => writes().flatMap(x => x.sessions.map(s => s.id))
+
+  it('is left to the watch while it records it, and once it saved it', async () => {
+    watchFile({ w1: { s: 'pending', at: Date.now() }, w2: { s: 'saved', at: Date.now() } })
+    await hs.enableHealth(state([workout('w1', 1), workout('w2', 2), workout('w3', 3)]))
+    expect(ids()).toEqual(['opengym-w-w3'])
+    expect(file().written['opengym-w-w1']).toBeUndefined()
+  })
+
+  it('is written by the phone when the watch went quiet after the end', async () => {
+    watchFile({ w1: { s: 'pending', at: Date.now() - 3600000, end: Date.now() - 11 * 60000 } })
+    await hs.enableHealth(state([workout('w1', 1)]))
+    expect(ids()).toEqual(['opengym-w-w1'])
+  })
+
+  it('stays the phone’s to update when the phone wrote it first', async () => {
+    await hs.enableHealth(state([workout('w1', 1)]))
+    vi.resetModules()
+    watchFile({ w1: { s: 'saved', at: Date.now() } })
+    const again = await import('./health-sync.js')
+    await again.loadHealth()
+    await again.syncHealth(state([{ ...workout('w1', 1), name: 'Pull' }]))
+    expect(writes().at(-1).sessions.map(s => [s.id, s.title])).toEqual([['opengym-w-w1', 'Pull']])
+  })
+})

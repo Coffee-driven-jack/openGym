@@ -17,6 +17,7 @@ import { exerciseNameFor } from './i18n-core.js'
 import { EXIDX } from './exercises.js'
 import { speedUnitOf } from './speed.js'
 import { hrSummary } from './heart-rate.js'
+import { watchHeldIds } from './watch-link.js'
 
 export const HEALTH_FILE = 'opengym-health.json'
 const OFF = { on: false, written: {}, at: 0, error: null, readHr: false }
@@ -107,10 +108,18 @@ export function syncHealth(S) {
   return running
 }
 
+// A workout the watch app records is saved to Health by the watch under the same id: the phone
+// holds back what it has not written itself yet (lib/watch-link.js says which and how long).
+const leaveToWatch = (records, held, written) => (!held.size ? records : {
+  ...records,
+  sessions: records.sessions.filter(r => written[r.id] || !held.has(r.id.replace(/^opengym-w-/, ''))),
+})
+
 async function syncOnce(S, h) {
   const p = await plugin()
   if (!p) return h
-  const plan = planSync(healthRecords(S, { nameOf, speedUnit: speedUnitOf(S) }), h.written)
+  const records = healthRecords(S, { nameOf, speedUnit: speedUnitOf(S) })
+  const plan = planSync(leaveToWatch(records, await watchHeldIds().catch(() => new Set()), h.written), h.written)
   const nothing = !plan.sessions.length && !plan.weights.length && !plan.remove.sessions.length && !plan.remove.weights.length
   if (nothing) {
     if (!h.error) return h
