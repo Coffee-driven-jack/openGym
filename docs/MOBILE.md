@@ -232,8 +232,10 @@ differs (`ios/App/App/HealthKitPlugin.swift`, same five methods as `HealthConnec
 - **No duplicates.** Every object carries openGym's id as `HKMetadataKeyExternalUUID`. HealthKit has
   no replace-by-id, so writing a record again deletes what this app saved under that id first. An
   object with that id from another source (a future watch app) is left alone and not written over.
-- **Permissions:** writing workouts and body mass, and reading heart rate (asked now so a later
-  workout screen does not ask again). HealthKit never tells an app whether writing was denied, so
+- **Permissions:** writing workouts and body mass; reading workouts and body mass (without read
+  access a query only returns this app's own objects, so a watch-saved workout could not be
+  recognised) and heart rate (asked now so a later workout screen does not ask again). HealthKit
+  never tells an app whether writing was denied, so
   the card cannot know up front; a denial shows as a refused write, and the row then points to
   Health > Sharing > Apps, the only place to allow it again.
 - **Where it shows:** every iPhone has Health; there is nothing to install. On an iPad without
