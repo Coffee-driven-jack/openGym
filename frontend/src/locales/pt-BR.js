@@ -1271,7 +1271,7 @@ export const PT_BR_OVERRIDES = {
   'Apple Health': 'Apple Saúde',
   'Write to Apple Health': 'Gravar no Apple Saúde',
   'Open Apple Health': 'Abrir o Apple Saúde',
-  'Workouts and weigh-ins go to Apple Health when you finish or change them. openGym reads nothing back.': 'Treinos e pesagens vão para o Apple Saúde quando você os conclui ou altera. O openGym não lê nada de volta.',
+  'Workouts and weigh-ins go to Apple Health when you finish or change them.': 'Treinos e pesagens vão para o Apple Saúde quando você os conclui ou altera.',
   'Apple Health permission not granted': 'Permissão do Apple Saúde não concedida',
   'Could not write to Apple Health': 'Não foi possível gravar no Apple Saúde',
   'Writing to Apple Health': 'Gravando no Apple Saúde',
@@ -1414,6 +1414,13 @@ export const PT_BR_OVERRIDES = {
   'Gentle, for headphones or a quiet room.': 'Suave, para fones de ouvido ou um lugar silencioso.',
   'Fewer than two workouts in this period. Pick a longer one.': 'Menos de dois treinos neste período. Escolha um mais longo.',
   'Releases are checked on GitHub. The download is verified against its checksum before the installer opens.': 'As versões são verificadas no GitHub. O download é conferido pela soma de verificação antes de abrir o instalador.',
+  '{0} avg · {1} max': '{0} média · {1} máx',
+  'Heart rate': 'Frequência cardíaca',
+  '{0} avg': '{0} média',
+  '{0} max': '{0} máx',
+  'Read heart rate from Apple Health': 'Ler frequência cardíaca do Apple Saúde',
+  'Heart rate recorded by your Apple Watch during a workout shows on the workout.': 'A frequência cardíaca registrada pelo seu Apple Watch durante um treino aparece no treino.',
+  'Heart rate is read back for your workouts.': 'A frequência cardíaca dos seus treinos é lida de volta.',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

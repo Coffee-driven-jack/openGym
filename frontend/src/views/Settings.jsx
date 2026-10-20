@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, forwardRef, useSyncExternalStore } from 'react'
 import { useNavigate, useParams, useLocation, Navigate } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
-import { healthStatus, loadHealth, enableHealth, disableHealth, openHealthConnect, onHealthChange } from '../lib/health-sync.js'
+import { healthStatus, loadHealth, enableHealth, disableHealth, openHealthConnect, onHealthChange, setReadHr } from '../lib/health-sync.js'
 import { workoutControls } from '../lib/workout-controls.js'
 import { speedUnitOf } from '../lib/speed.js'
 import { formulaOf, FORMULA_NAMES } from '../lib/onerm.js'
@@ -1445,7 +1445,7 @@ const healthCopy = platform => platform === 'ios' ? {
   name: t('Apple Health'),
   write: t('Write to Apple Health'),
   open: t('Open Apple Health'),
-  footer: t('Workouts and weigh-ins go to Apple Health when you finish or change them. openGym reads nothing back.'),
+  footer: t('Workouts and weigh-ins go to Apple Health when you finish or change them.'),
   denied: t('Apple Health permission not granted'),
   failed: t('Could not write to Apple Health'),
   writing: t('Writing to Apple Health'),
@@ -1518,7 +1518,7 @@ function HealthCard({ S, toast, platform }) {
   })
 
   return (
-    <Section title={c.name} footer={h.on ? c.footer : null}>
+    <Section title={c.name} footer={h.on ? (ios && h.readHr ? c.footer + ' ' + t('Heart rate is read back for your workouts.') : c.footer) : null}>
       <Row icon="heart" iconTint="var(--red)" title={c.write}
         subtitle={t('Finished workouts and weigh-ins, from this phone only.')}>
         <Switch checked={!!h.on} disabled={busy} onChange={v => (v ? turnOn() : askOff())} />
@@ -1527,6 +1527,10 @@ function HealthCard({ S, toast, platform }) {
         title={t('Permission withdrawn. Tap to allow again')}
         subtitle={ios ? t('Allow openGym in Health > Sharing > Apps') : undefined}
         accessory="chevron" onClick={ios ? () => openHealthConnect('health').catch(() => {}) : turnOn} />}
+      {ios && h.on && <Row icon="heart" iconTint="var(--red)" title={t('Read heart rate from Apple Health')}
+        subtitle={t('Heart rate recorded by your Apple Watch during a workout shows on the workout.')}>
+        <Switch checked={!!h.readHr} disabled={busy} onChange={v => setReadHr(v).then(setH).catch(() => {})} />
+      </Row>}
       {h.on && <Row icon="list" iconTint="var(--blue)" title={c.open}
         accessory="chevron" onClick={() => openHealthConnect(ios ? 'health' : undefined).catch(() => {})} />}
     </Section>

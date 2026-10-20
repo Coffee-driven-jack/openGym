@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
   state.enableHealth = vi.fn(async () => { state.health = { ...state.health, on: true }; return { ok: true, health: state.health } })
   state.disableHealth = vi.fn(async ({ removeWritten }) => { state.health = { ...state.health, on: false, written: removeWritten ? {} : state.health.written }; return state.health })
   state.openHealthConnect = vi.fn(async () => {})
+  state.setReadHr = vi.fn(async on => { state.health = { ...state.health, readHr: on }; return state.health })
   state.menuSheet = vi.fn()
   state.toast = vi.fn()
   return state
@@ -52,6 +53,7 @@ vi.mock('../lib/health-sync.js', () => ({
   disableHealth: (...a) => mocks.disableHealth(...a),
   openHealthConnect: (...a) => mocks.openHealthConnect(...a),
   onHealthChange: () => () => {},
+  setReadHr: (...a) => mocks.setReadHr(...a),
 }))
 vi.mock('./MobileOnboarding.jsx', () => ({ ConnectSheet: () => null }))
 vi.mock('../sheets.jsx', () => ({
@@ -69,7 +71,7 @@ beforeEach(() => {
   mocks.ios = true
   mocks.status = { status: 'available', granted: false }
   mocks.health = { on: false, written: {}, error: null }
-  for (const k of ['enableHealth', 'disableHealth', 'openHealthConnect', 'menuSheet', 'toast']) mocks[k].mockClear()
+  for (const k of ['enableHealth', 'disableHealth', 'openHealthConnect', 'setReadHr', 'menuSheet', 'toast']) mocks[k].mockClear()
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)
@@ -140,5 +142,22 @@ describe('Settings - Apple Health', () => {
     await mount()
     await act(async () => { row('Open Apple Health').click() })
     expect(mocks.openHealthConnect).toHaveBeenCalledWith('health')
+  })
+
+  it('reads heart rate back only once writing is on, off until turned on', async () => {
+    await mount()
+    expect(row('Read heart rate from Apple Health')).toBeUndefined()
+
+    act(() => root.unmount()); root = createRoot(host)
+    mocks.health = { on: true, written: {}, error: null, readHr: false }
+    await mount()
+    const hrSwitch = () => row('Read heart rate from Apple Health').querySelector('[role="switch"]')
+    expect(hrSwitch().getAttribute('aria-checked')).toBe('false')
+    expect(host.textContent).toContain('Workouts and weigh-ins go to Apple Health when you finish or change them.')
+    expect(host.textContent).not.toContain('Heart rate is read back for your workouts.')
+    await act(async () => { hrSwitch().click() })
+    expect(mocks.setReadHr).toHaveBeenCalledWith(true)
+    expect(hrSwitch().getAttribute('aria-checked')).toBe('true')
+    expect(host.textContent).toContain('Heart rate is read back for your workouts.')
   })
 })
