@@ -103,7 +103,7 @@ describe('useRestReadiness', () => {
 
   it('does not buzz with vibration off', () => {
     act(() => useStore.setState({ S: { hrReady: { on: true, bpm: 110, floorSec: 45 }, vibrate: false } }))
-    wait(46); bpm(100); wait(1)
+    wait(46); bpm(100); wait(3); bpm(100); wait(3)
     expect(ui().setHrReady).toHaveBeenCalledTimes(1)
     expect(h.vibrate).not.toHaveBeenCalled()
   })
@@ -129,7 +129,7 @@ describe('useRestReadiness', () => {
     act(() => useUI.setState({ timer: rest({ startedAt: Date.now() - 50000 }) }))
     wait(1)
     expect(ui().setHrReady).not.toHaveBeenCalled()
-    bpm(100); wait(1)
+    bpm(100); wait(3); bpm(100); wait(3)
     expect(ui().setHrReady).toHaveBeenCalledTimes(1)
   })
 

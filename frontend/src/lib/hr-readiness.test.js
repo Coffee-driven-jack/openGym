@@ -17,19 +17,24 @@ describe('readiness', () => {
   })
   it('is not ready while a reading in the hold window is over the target', () => {
     expect(run([[50, 100], [56, 112], [59, 100]]).ready).toBe(false)
-    expect(run([[50, 100], [54, 112], [59, 100]]).ready).toBe(true)
+    expect(run([[50, 100], [54, 112], [55, 100], [59, 100]]).ready).toBe(true)
+  })
+  it('wants the readings under the target for the whole hold, not one dip', () => {
+    expect(run([[50, 120], [59, 100]]).ready).toBe(false)
+    expect(run([[50, 120], [55, 100], [59, 100]])).toEqual({ ready: true, since: at(55) })
   })
   it('counts a reading at the target as under it', () => {
-    expect(run([[58, 110]]).ready).toBe(true)
-    expect(run([[58, 110]], { targetBpm: 109 }).ready).toBe(false)
+    expect(run([[53, 110], [58, 110]]).ready).toBe(true)
+    expect(run([[53, 110], [58, 110]], { targetBpm: 109 }).ready).toBe(false)
   })
   it('wants a reading at most 10 s old', () => {
     expect(run([[45, 90], [49, 90]], { holdSec: 15 }).ready).toBe(false)
     expect(run([[45, 90], [50, 90]], { holdSec: 15 }).ready).toBe(true)
   })
-  it('wants a reading in the hold window', () => {
-    expect(run([[52, 90]], { holdSec: 5 }).ready).toBe(false)
-    expect(run([[52, 90]], { holdSec: 10 }).ready).toBe(true)
+  it('wants the run under the target to be at least the hold long', () => {
+    expect(run([[57, 90]], { holdSec: 5 }).ready).toBe(false)
+    expect(run([[52, 90], [57, 90]], { holdSec: 5 }).ready).toBe(true)
+    expect(run([[52, 90], [57, 90]], { holdSec: 10 }).ready).toBe(false)
   })
   it('is not ready without readings, and ignores ones from before the rest or not numbers', () => {
     expect(run([])).toEqual({ ready: false, since: null })
@@ -37,7 +42,7 @@ describe('readiness', () => {
     expect(readiness({ restStartedAt: T0, now: at(60) }).ready).toBe(false)
   })
   it('defaults to 110 bpm, 45 s and a 5 s hold, and takes the readings in any order', () => {
-    expect(readiness({ samples: [{ t: at(59), bpm: 100 }, { t: at(57), bpm: 105 }], restStartedAt: T0, now: at(60) })).toEqual({ ready: true, since: at(57) })
+    expect(readiness({ samples: [{ t: at(59), bpm: 100 }, { t: at(55), bpm: 105 }], restStartedAt: T0, now: at(60) })).toEqual({ ready: true, since: at(55) })
     expect(readiness({ samples: [{ t: at(44), bpm: 100 }], restStartedAt: T0, now: at(44) }).ready).toBe(false)
     expect(readiness({ samples: [{ t: at(59), bpm: 111 }], restStartedAt: T0, now: at(60) }).ready).toBe(false)
   })

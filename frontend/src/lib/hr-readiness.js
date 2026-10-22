@@ -9,8 +9,8 @@ const NOT_READY = { ready: false, since: null }
 
 /**
  * { ready, since } for the rest that started at `restStartedAt`: past `floorSec`, the latest
- * reading at most 10 s old, and every reading of the last `holdSec` at or under `targetBpm` (one at
- * least). `since` is the oldest reading of the run under the target that ends now.
+ * reading at most 10 s old, and the readings at or under `targetBpm` without a break for at least
+ * `holdSec` (one dip under the target is not a recovery). `since` is the oldest reading of that run.
  */
 export function readiness({ samples, restStartedAt, now, targetBpm = HR_READY_DEFAULT.bpm, floorSec = HR_READY_DEFAULT.floorSec, holdSec = HR_HOLD_SEC } = {}) {
   if (!(now - restStartedAt >= floorSec * 1000)) return NOT_READY
@@ -18,10 +18,10 @@ export function readiness({ samples, restStartedAt, now, targetBpm = HR_READY_DE
     .filter(s => Number.isFinite(s?.t) && Number.isFinite(s?.bpm) && s.t >= restStartedAt && s.t <= now)
     .sort((a, b) => a.t - b.t)
   if (!list.length || now - list[list.length - 1].t > STALE_MS) return NOT_READY
-  const hold = list.filter(s => s.t >= now - holdSec * 1000)
-  if (!hold.length || hold.some(s => s.bpm > targetBpm)) return NOT_READY
+  if (list[list.length - 1].bpm > targetBpm) return NOT_READY
   let i = list.length - 1
   while (i > 0 && list[i - 1].bpm <= targetBpm) i--
+  if (now - list[i].t < holdSec * 1000) return NOT_READY
   return { ready: true, since: list[i].t }
 }
 
