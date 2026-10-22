@@ -2794,7 +2794,7 @@ export function beginWorkout(routineIds, bw) {
     }
   })
   // The watch app records the session alongside (lib/watch-link.js); nothing waits on it.
-  watchStartSession(S().active)
+  watchStartSession(S().active, S().workouts)
   useUI.getState().stopRest()
   navToWorkout()
 }
@@ -2816,7 +2816,7 @@ export function repeatWorkout(w, close) {
         workoutView: s.workoutView || 'cards',
       }
     })
-    watchStartSession(S().active)
+    watchStartSession(S().active, S().workouts)
     useUI.getState().stopRest()
     if (close) closeThenNav(close, '/workout'); else navToWorkout()
     if (skipped) toast(tn('{0} exercise no longer exists and was left out.', '{0} exercises no longer exist and were left out.', skipped))

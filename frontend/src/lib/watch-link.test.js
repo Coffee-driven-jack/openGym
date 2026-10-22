@@ -92,6 +92,14 @@ describe('starting and ending the watch session', () => {
     expect(await wl.watchStartSession(active())).toBeNull()
     expect(sent('start')).toEqual([])
   })
+  it('ends a session still pending from an earlier workout before the new start, thrown away unless saved', async () => {
+    h.files.set('opengym-watch.json', JSON.stringify({ useWatch: true, held: { old: { s: 'pending', at: T0 }, kept: { s: 'pending', at: T0 } } }))
+    await wl.watchStartSession(active({ id: 'w2' }), [{ id: 'kept', end: T0 + 1000 }])
+    expect(sent('end')).toEqual([{ id: 'old', end: expect.any(Number), discard: true }, { id: 'kept', end: T0 + 1000, discard: false }])
+    expect(sent('start')).toEqual([{ id: 'w2', name: 'Push', start: T0 }])
+    expect(h.calls.map(c => c[0])).toEqual(['end', 'end', 'start'])
+    expect(Object.keys(file().held).sort()).toEqual(['kept', 'w2'])
+  })
   it('sends nothing without a paired watch that has the app', async () => {
     h.status = { ...h.status, appInstalled: false }
     expect(await wl.watchStartSession(active())).toBeNull()
@@ -268,9 +276,9 @@ describe('the live heart rate for the workout screen', () => {
 describe('a session left running on the watch', () => {
   it('is ended with the saved workout, or thrown away when there is none', async () => {
     vi.useFakeTimers({ now: T0, toFake: ['Date'] })
-    await wl.watchStartSession(active({ id: 'done' }))
-    await wl.watchStartSession(active({ id: 'gone' }))
-    await wl.watchStartSession(active({ id: 'live' }))
+    // Three sessions left pending at once, as an app killed mid-workout leaves them (a start by
+    // itself would already have ended the earlier ones).
+    h.files.set('opengym-watch.json', JSON.stringify({ useWatch: true, held: { done: { s: 'pending', at: T0 }, gone: { s: 'pending', at: T0 }, live: { s: 'pending', at: T0 } } }))
     vi.setSystemTime(T0 + 3600000)
     await wl.reconcileWatch({ active: { id: 'live' }, workouts: [{ id: 'done', start: T0, end: T0 + 1800000 }] })
     expect(sent('end')).toEqual([

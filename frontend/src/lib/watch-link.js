@@ -63,8 +63,13 @@ export function setUseWatch(on) {
   return savePref(f => ({ ...f, useWatch: !!on }))
 }
 
-/** Starts the watch session for the workout that just started here. Null when nothing was sent. */
-export async function watchStartSession(active) {
+/**
+ * Starts the watch session for the workout that just started here. Null when nothing was sent.
+ * A session still pending from an earlier workout is ended first (thrown away unless that workout
+ * was saved): the watch closes a session it still holds when a new start comes, as a finished
+ * workout, and a discarded one would land in Health that way.
+ */
+export async function watchStartSession(active, workouts = []) {
   if (!MOBILE || !active?.id || active.backfill || active.editingWorkoutId) return null
   try {
     const p = await plugin()
@@ -72,6 +77,11 @@ export async function watchStartSession(active) {
     const st = await watchStatus()
     if (!st.paired || !st.appInstalled) return null
     const id = String(active.id)
+    for (const [stale, e] of Object.entries((await loadWatchPref()).held)) {
+      if (stale === id || e?.s !== 'pending' || e.end) continue
+      const w = workouts.find(x => String(x.id) === stale)
+      await watchEndSession(stale, w ? { end: w.end } : { discard: true })
+    }
     await savePref(f => ({ ...f, held: { ...f.held, [id]: { s: 'pending', at: Date.now() } } }))
     return await p.W.startSession({ id, name: String(active.name || ''), start: Number(active.start) || Date.now() })
   } catch { return null }
