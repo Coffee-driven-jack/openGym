@@ -280,6 +280,16 @@ workout with that heart rate attached. There is no set logging on the watch.
   in `opengym-watch.json`, on by default); without the watch app installed it says where to
   install it. Nothing is sent while it is off. A session left running by a killed app is ended,
   or thrown away, at the next launch.
+- **Rest by heart rate:** Settings > Apple Health > **Rest by heart rate** (with the watch app
+  installed; `S.hrReady`, off by default, synced like other preferences). While a rest runs, the
+  phone keeps the watch's heart rate readings for that rest and judges them every second
+  (`src/lib/hr-readiness.js`, `src/lib/use-rest-readiness.js`): ready once the rest is past
+  **Not before** (45 s), the latest reading is at most 10 s old, and every reading of the last
+  5 s is at or under **Ready under** (110 bpm; **Use my last workout** sets it from the latest
+  workout with heart rate). The first ready shows a toast, buzzes where the phone can, puts
+  ♥ Ready on the rest bar and goes to the watch as `ready` in the rest context: the ring turns
+  green, "Ready when you are" shows and the watch taps once. It is advice only: the countdown
+  keeps running as the limit and Skip still ends the rest. The watch evaluates nothing itself.
 - **Project setup:** the App target depends on `OpenGymWatch` and embeds it in `Watch/` (the
   "Embed Watch Content" phase). The watch target has its own HealthKit entitlement
   (`OpenGymWatch/OpenGymWatch.entitlements`), the `workout-processing` background mode

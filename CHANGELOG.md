@@ -12,6 +12,10 @@
   heart rate in the workout header, the rest timer on your wrist with a tap at 10 seconds, +15 s
   and Skip, and one workout with its heart rate saved to Health. Settings > Apple Health >
   Apple Watch turns it off.
+- **Rest by heart rate.** With the Apple Watch app, Settings > Apple Health > Rest by heart rate
+  says when you are ready for the next set: once your heart rate is back under your target
+  (110 bpm by default, or taken from your last workout) and at least 45 s have passed, the rest
+  bar shows ♥ Ready and the watch turns green with a tap. The timer still runs as the limit.
 
 ## v1.4.1 (2026-10-10)
 
