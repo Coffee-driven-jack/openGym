@@ -2263,4 +2263,10 @@ export default {
   'Apple Watch': 'Apple Watch',
   'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Burada bir antrenman başlattığınızda saatinizde de başlatır: canlı nabız, bileğinizde dinlenme sayacı.',
   'Install openGym on your watch from the Watch app on this iPhone.': 'openGym’i bu iPhone’daki Watch uygulamasından saatinize yükleyin.',
+  'Heart rate recovered: ready for the next set': 'Nabız toparlandı: sonraki sete hazırsın',
+  'Rest by heart rate': 'Nabza göre dinlenme',
+  'Says you are ready once your heart rate is back under the target. The timer still runs as the limit.': 'Nabzın hedefin altına döndüğünde hazır olduğunu söyler. Zamanlayıcı yine sınır olarak çalışır.',
+  'Ready under': 'Şunun altında hazır',
+  'Not before': 'Şundan önce değil',
+  'Use my last workout': 'Son antrenmanımı kullan',
 }

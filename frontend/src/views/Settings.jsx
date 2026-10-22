@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation, Navigate } from 'react-router-dom'
 import { useStore, DEF, hasData } from '../store/useStore.js'
 import { healthStatus, loadHealth, enableHealth, disableHealth, openHealthConnect, onHealthChange, setReadHr } from '../lib/health-sync.js'
 import { watchStatus, loadWatchPref, setUseWatch } from '../lib/watch-link.js'
+import { hrReadyOf, lastWorkoutTarget } from '../lib/hr-readiness.js'
 import { workoutControls } from '../lib/workout-controls.js'
 import { speedUnitOf } from '../lib/speed.js'
 import { formulaOf, FORMULA_NAMES } from '../lib/onerm.js'
@@ -43,7 +44,7 @@ import BackupFolderRow, { useBackupFolder, autoBackupSubtitle } from '../compone
 import { ServerSyncSection, KeptChangesRows, leaveServer, connectServer, passkeySignIn } from '../components/ServerSync.jsx'
 import { passwordOn, PasswordRow, openPasswordSignIn, openPasswordRegister } from '../components/PasswordAuth.jsx'
 import { usePasskeys, PasskeysRow, DeviceLinkRow, openDeviceLinkRedeem } from '../components/Passkeys.jsx'
-import { Section, Row, SelectRow, Switch, Segmented, Button, TextField, SearchField } from '../components/ui.jsx'
+import { Section, Row, SelectRow, Switch, Segmented, Button, TextField, SearchField, Stepper } from '../components/ui.jsx'
 import { PAGES, ROOT_GROUPS, pageVisible, searchSettings, pageTrail } from './settings-pages.js'
 
 /* Settings (v1.3.11). The root is one screen: an account card, eleven rows that each open a page
@@ -790,7 +791,7 @@ export default function Settings({ page = null, find = null, via = null }) {
         {/* Android only: the system folder picker (#161). iOS shows Documents in Files already. */}
         {MOBILE && android && S.autoBackup && <BackupFolderRow />}
       </Section>
-      {MOBILE && (android || ios) && <HealthCard S={S} toast={toast} platform={android ? 'android' : 'ios'} />}
+      {MOBILE && (android || ios) && <HealthCard S={S} update={update} toast={toast} platform={android ? 'android' : 'ios'} />}
       <Section title={t('Bring data in')}>
         <Row icon="download" iconTint="var(--teal)" title={t('Import backup')} accessory="chevron" onClick={() => fileRef.current.click()} />
         <Row icon="download" iconTint="var(--teal)" title={t('Import from another app')}
@@ -1466,7 +1467,7 @@ const healthCopy = platform => platform === 'ios' ? {
   removeFailed: t('Could not remove it from Health Connect'),
 }
 
-function HealthCard({ S, toast, platform }) {
+function HealthCard({ S, update, toast, platform }) {
   const [st, setSt] = useState(null)
   const [h, setH] = useState(null)
   const [busy, setBusy] = useState(false)
@@ -1551,6 +1552,34 @@ function HealthCard({ S, toast, platform }) {
         <Switch checked={watch.appInstalled && !!watch.useWatch} disabled={!watch.appInstalled}
           onChange={v => setUseWatch(v).then(f => setWatch(w => ({ ...w, useWatch: f.useWatch }))).catch(() => {})} />
       </Row>}
+      {ios && watch?.paired && watch.appInstalled && <HrReadyRows S={S} update={update} />}
     </Section>
   )
+}
+
+// Rest by heart rate (lib/hr-readiness.js): with the watch streaming heart rate, the rest says
+// "ready" once it is back under the target. The timed rest stays as the limit.
+function HrReadyRows({ S, update }) {
+  const hr = hrReadyOf(S)
+  const set = change => update(s => { s.hrReady = { ...hrReadyOf(s), ...change } })
+  const suggested = hr.on ? lastWorkoutTarget(S.workouts) : null
+  // The field shows what is being typed (120 passes through 1 and 12); the stepper clamps on blur.
+  const shown = k => (Number.isFinite(S.hrReady?.[k]) ? S.hrReady[k] : hr[k])
+  return <>
+    <Row icon="heart" iconTint="var(--red)" title={t('Rest by heart rate')}
+      subtitle={t('Says you are ready once your heart rate is back under the target. The timer still runs as the limit.')}>
+      <Switch checked={hr.on} onChange={v => set({ on: !!v })} />
+    </Row>
+    {hr.on && <Row icon="heart" iconTint="var(--red)" title={t('Ready under')}>
+      <Stepper value={shown('bpm')} step={5} min={60} max={180} decimal={false} unit="bpm" ariaLabel="target heart rate"
+        onChange={v => set({ bpm: v })} />
+    </Row>}
+    {hr.on && <Row icon="stopwatch" iconTint="var(--red)" title={t('Not before')}>
+      <Stepper value={shown('floorSec')} step={15} min={15} max={180} decimal={false} unit="s" ariaLabel="minimum rest"
+        onChange={v => set({ floorSec: v })} />
+    </Row>}
+    {suggested != null && <div className="lrow">
+      <Button variant="ghost" size="sm" onClick={() => set({ bpm: suggested })}>{t('Use my last workout')}</Button>
+    </div>}
+  </>
 }

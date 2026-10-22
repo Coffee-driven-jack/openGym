@@ -12,7 +12,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true
 const mocks = vi.hoisted(() => {
   const state = { S: null, MOBILE: true, android: false, ios: true, status: { status: 'available', granted: false }, health: { on: false, written: {}, error: null } }
   state.snapshot = () => ({
-    S: state.S, user: null, update: vi.fn(),
+    S: state.S, user: null, update: state.update,
     replaceState: vi.fn(), setUser: vi.fn(), pullState: vi.fn(), pushState: vi.fn(),
     signOut: vi.fn(), signOutAll: vi.fn(), resetDemo: vi.fn(), disconnectServer: vi.fn(),
   })
@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => {
   state.setReadHr = vi.fn(async on => { state.health = { ...state.health, readHr: on }; return state.health })
   state.menuSheet = vi.fn()
   state.toast = vi.fn()
+  state.update = vi.fn(fn => { const next = structuredClone(state.S); fn(next); state.S = next })
   state.watch = { supported: true, paired: false, appInstalled: false, reachable: false }
   state.watchPref = { useWatch: true, held: {} }
   state.setUseWatch = vi.fn(async on => { state.watchPref = { ...state.watchPref, useWatch: on }; return state.watchPref })
@@ -81,7 +82,7 @@ beforeEach(() => {
   mocks.health = { on: false, written: {}, error: null }
   mocks.watch = { supported: true, paired: false, appInstalled: false, reachable: false }
   mocks.watchPref = { useWatch: true, held: {} }
-  for (const k of ['enableHealth', 'disableHealth', 'openHealthConnect', 'setReadHr', 'menuSheet', 'toast', 'setUseWatch']) mocks[k].mockClear()
+  for (const k of ['enableHealth', 'disableHealth', 'openHealthConnect', 'setReadHr', 'menuSheet', 'toast', 'setUseWatch', 'update']) mocks[k].mockClear()
   host = document.createElement('div')
   document.body.appendChild(host)
   root = createRoot(host)
@@ -196,5 +197,49 @@ describe('Settings - Apple Health', () => {
     await mount()
     expect(row('Apple Watch').textContent).toContain('Install openGym on your watch from the Watch app on this iPhone.')
     expect(row('Apple Watch').querySelector('[role="switch"]').disabled).toBe(true)
+  })
+
+  it('offers rest by heart rate only with the watch app installed, off until turned on', async () => {
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: false }
+    await mount()
+    expect(row('Rest by heart rate')).toBeUndefined()
+
+    act(() => root.unmount()); root = createRoot(host)
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: true }
+    await mount()
+    const r = row('Rest by heart rate')
+    expect(r.textContent).toContain('Says you are ready once your heart rate is back under the target. The timer still runs as the limit.')
+    expect(r.querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('false')
+    expect(row('Ready under')).toBeUndefined()
+    expect(row('Not before')).toBeUndefined()
+    await act(async () => { r.querySelector('[role="switch"]').click() })
+    expect(mocks.S.hrReady).toEqual({ on: true, bpm: 110, floorSec: 45 })
+  })
+
+  it('sets the target and the floor with their steppers when on', async () => {
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: true }
+    mocks.S = { ...mocks.S, hrReady: { on: true, bpm: 110, floorSec: 45 } }
+    await mount()
+    expect(row('Rest by heart rate').querySelector('[role="switch"]').getAttribute('aria-checked')).toBe('true')
+    expect(row('Ready under').querySelector('input').value).toBe('110')
+    expect(row('Not before').querySelector('input').value).toBe('45')
+    await act(async () => { row('Ready under').querySelector('[aria-label^="Increase"]').click() })
+    expect(mocks.S.hrReady).toEqual({ on: true, bpm: 115, floorSec: 45 })
+    await act(async () => { row('Not before').querySelector('[aria-label^="Decrease"]').click() })
+    expect(mocks.S.hrReady).toEqual({ on: true, bpm: 115, floorSec: 30 })
+  })
+
+  it('takes the target from the last workout with a heart rate, and hides that without one', async () => {
+    mocks.watch = { ...mocks.watch, paired: true, appInstalled: true }
+    mocks.S = { ...mocks.S, hrReady: { on: true, bpm: 110, floorSec: 45 } }
+    await mount()
+    const useLast = () => [...host.querySelectorAll('button')].find(b => b.textContent === 'Use my last workout')
+    expect(useLast()).toBeUndefined()
+
+    act(() => root.unmount()); root = createRoot(host)
+    mocks.S = { ...mocks.S, workouts: [{ id: 'w1', d: '2026-10-01', start: 1, hr: { avg: 130, min: 80 } }] }
+    await mount()
+    await act(async () => { useLast().click() })
+    expect(mocks.S.hrReady).toEqual({ on: true, bpm: 98, floorSec: 45 })
   })
 })

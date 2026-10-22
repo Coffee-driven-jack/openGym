@@ -2256,4 +2256,10 @@ export default {
   'Apple Watch': 'Apple Watch',
   'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': '在這裡開始訓練時，手錶上也會開始一次訓練：即時心率，手腕上的休息計時器。',
   'Install openGym on your watch from the Watch app on this iPhone.': '請透過此 iPhone 上的 Watch App 在手錶上安裝 openGym。',
+  'Heart rate recovered: ready for the next set': '心率已恢復：可以開始下一組',
+  'Rest by heart rate': '依心率休息',
+  'Says you are ready once your heart rate is back under the target. The timer still runs as the limit.': '心率回到目標以下時提示你已準備好。計時器仍會照常倒數作為上限。',
+  'Ready under': '低於此值即就緒',
+  'Not before': '最短休息',
+  'Use my last workout': '使用我上次的訓練',
 }

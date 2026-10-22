@@ -2260,4 +2260,10 @@ export default {
   'Apple Watch': 'Apple Watch',
   'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Запускає тренування на годиннику, коли ви починаєте його тут: пульс наживо, таймер відпочинку на зап’ясті.',
   'Install openGym on your watch from the Watch app on this iPhone.': 'Встановіть openGym на годинник через програму Watch на цьому iPhone.',
+  'Heart rate recovered: ready for the next set': 'Пульс відновився: можна починати наступний підхід',
+  'Rest by heart rate': 'Відпочинок за пульсом',
+  'Says you are ready once your heart rate is back under the target. The timer still runs as the limit.': 'Повідомляє, що ви готові, коли пульс знову опускається нижче цілі. Таймер і далі йде як межа.',
+  'Ready under': 'Готовий нижче',
+  'Not before': 'Не раніше ніж',
+  'Use my last workout': 'Взяти з останнього тренування',
 }

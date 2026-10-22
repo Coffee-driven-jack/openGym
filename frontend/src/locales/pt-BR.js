@@ -1424,6 +1424,12 @@ export const PT_BR_OVERRIDES = {
   'Apple Watch': 'Apple Watch',
   'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Inicia um treino no seu relógio quando você inicia um aqui: frequência cardíaca ao vivo, timer de descanso no pulso.',
   'Install openGym on your watch from the Watch app on this iPhone.': 'Instale o openGym no seu relógio pelo app Watch neste iPhone.',
+  'Heart rate recovered: ready for the next set': 'Frequência cardíaca recuperada: pronto para a próxima série',
+  'Rest by heart rate': 'Descanso pela frequência cardíaca',
+  'Says you are ready once your heart rate is back under the target. The timer still runs as the limit.': 'Avisa que você está pronto quando sua frequência cardíaca volta para baixo da meta. O timer continua correndo como limite.',
+  'Ready under': 'Pronto abaixo de',
+  'Not before': 'Não antes de',
+  'Use my last workout': 'Usar meu último treino',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

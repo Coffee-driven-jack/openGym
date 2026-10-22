@@ -2263,4 +2263,10 @@ export default {
   'Apple Watch': 'Apple Watch',
   'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': '여기서 운동을 시작하면 워치에서도 운동이 시작됩니다: 실시간 심박수, 손목 위의 휴식 타이머.',
   'Install openGym on your watch from the Watch app on this iPhone.': '이 iPhone의 Watch 앱에서 워치에 openGym을 설치하세요.',
+  'Heart rate recovered: ready for the next set': '심박수 회복: 다음 세트 준비 완료',
+  'Rest by heart rate': '심박수 기반 휴식',
+  'Says you are ready once your heart rate is back under the target. The timer still runs as the limit.': '심박수가 목표 아래로 돌아오면 준비되었다고 알려줍니다. 타이머는 계속 한도로 작동합니다.',
+  'Ready under': '이 값 아래면 준비',
+  'Not before': '최소 휴식',
+  'Use my last workout': '마지막 운동으로 설정',
 }

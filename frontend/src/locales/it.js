@@ -2263,4 +2263,10 @@ export default {
   'Apple Watch': 'Apple Watch',
   'Starts a workout on your watch when you start one here: heart rate live, rest timer on your wrist.': 'Avvia un allenamento sul tuo orologio quando ne inizi uno qui: frequenza cardiaca in tempo reale, timer di recupero al polso.',
   'Install openGym on your watch from the Watch app on this iPhone.': 'Installa openGym sul tuo orologio dall’app Watch di questo iPhone.',
+  'Heart rate recovered: ready for the next set': 'Battito recuperato: pronto per la prossima serie',
+  'Rest by heart rate': 'Recupero in base al battito',
+  'Says you are ready once your heart rate is back under the target. The timer still runs as the limit.': 'Ti dice che sei pronto quando il battito torna sotto l’obiettivo. Il timer continua comunque come limite.',
+  'Ready under': 'Pronto sotto',
+  'Not before': 'Non prima di',
+  'Use my last workout': 'Usa il mio ultimo allenamento',
 }
