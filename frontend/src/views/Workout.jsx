@@ -16,8 +16,9 @@ import { beep, vibrate, unlock } from '../lib/sound.js'
 import { pinState } from '../lib/queue.js'
 import { t, tn, exerciseNameFor, exerciseNameClass } from '../lib/i18n.js'
 import { api, beacon } from '../lib/api.js'
-import { pyramidRestFor, maxRecordAt, isPyramid, pyramidLabel } from '../lib/pyramid.js'
-import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater, supersetFlowStep, restAfterSet, restOnRecheck, restSecFor, warmupRestSecFor } from '../lib/supersetFlow.js'
+import { maxRecordAt, isPyramid, pyramidLabel } from '../lib/pyramid.js'
+import { insertionIndexAfterCurrentUnit, nextUnfinishedUnit, setProgressHighWater } from '../lib/supersetFlow.js'
+import { applySetDone, afterSetDone } from '../lib/set-done.js'
 import Media from '../components/Media.jsx'
 import WorkoutScrollAnchor from '../components/WorkoutScrollAnchor.jsx'
 import WorkoutChips from '../components/WorkoutChips.jsx'
@@ -101,9 +102,6 @@ const RTL_LETTER = /[֐-ࣿיִ-﷿ﹰ-﻿]/
 // "last time" recap and the progression line — leaving the name, the ⋯ menu, the one-line plan
 // the rows are measured against, and the sets.
 // Nothing dropped is lost: it is all still on the ⋯ menu, or one ⋮ switch back to list/cards.
-// The pause between the left and the right side of one timed per-side set (owner's call): long
-// enough to turn over, far shorter than the rest the set earns once both sides are held.
-const SWITCH_SIDES_SEC = 10
 
 function ExerciseBlock({ entryIdx, compact, dense, editing, onToggle, onToggleSide, onField, onAddSet, onRemoveSet, onAddWarmup, onRemoveSetAt, onCopySetAt, onStartTimed, onPairPrev, onPairNext, onSetRowRef, onProgressionSettings, onRest, onNoProg, routineUpdate, onSwap, onMoveUp, onMoveDown, canMoveUp, canMoveDown, onRemoveExercise, busy }) {
   const S = useStore(s => s.S)
@@ -1635,6 +1633,12 @@ function ActiveWorkout() {
     let exJustDone = false, workoutDone = false, checked = false
     update(s => {
       const e = s.active.entries[idx]
+      // The plain tick of an open set: the path the watch's Completed shares (lib/set-done.js).
+      if (!side && !editing && !e.sets[i].done) {
+        ({ checked, exJustDone, workoutDone } = applySetDone(s, idx, i, { at: Date.now() }))
+        if (!quiet) { beep(S.sound, 1040, 0.12); vibrate(30) }
+        return
+      }
       // A per-side tick flips just that side; the row's own `done` (both sides) is then
       // recomputed by toggleSide, so every completion check below still reads a single boolean.
       if (side) e.sets[i] = toggleSide(e.sets[i], side)
@@ -1668,80 +1672,18 @@ function ActiveWorkout() {
     // Only progress beyond this exercise's high-water mark may navigate or change rest. This
     // prevents an uncheck/re-check of finished work from replaying the flow side effects.
     const fresh = useStore.getState().S.active
-    if (fresh && checked && fresh.entries[idx]) {
-      const progress = setProgressHighWater(fresh.entries[idx], progressHighWater.current[idx] || 0)
-      progressHighWater.current[idx] = progress.highWater
-
-      const freshUnits = supersetUnits(fresh.entries)
-      const freshUnit = freshUnits.find(u => u.includes(idx))
-      const freshUnitDone = freshUnit?.every(ui => fresh.entries[ui].sets.every(x => x.done))
-      const nextUnit = freshUnitDone ? nextUnfinishedUnit(fresh.entries, freshUnits, idx) : null
-      const freshWorkoutDone = freshUnitDone && !nextUnit
-      const restBeforeWarmup = nextUnit?.some(ui =>
-        fresh.entries[ui].sets.some(set => isWarmupRow(set) && !set.done),
-      )
-      // The rest this set has earned: the exercise's own restSec when it set one, the global
-      // timer when it did not, and the longest of the group's across a superset (issue #10).
-      // Resolved once here so every branch below times the same break.
-      // A pyramid set may carry its own rest, standing in for the exercise's (pyramidRestFor).
-      const setRest = { idx, sec: pyramidRestFor(fresh.entries[idx].target, fresh.entries[idx].sets, i) }
-      const restSec = restSecFor(fresh.entries, freshUnit || [idx], S.restSec, setRest)
-      // A warm-up ramp set may rest shorter than a work set (the exercise's warmupRestSec); the
-      // last ramp set, into the first work set, still gets the working rest.
-      const restAfter = warmupRestSecFor(fresh.entries[idx], i, restSec)
-
-      // A re-check of finished work must not navigate or reopen a sheet, but it may still owe
-      // you a rest — see restOnRecheck, and the other half of issue #3. A rest that already ran
-      // out and only shows Ready is not running: it has nothing left to time. A paused one is
-      // still the rest you are in, held on purpose, and a re-check leaves it as it is.
-      if (!progress.isNew) {
-        const rest = useUI.getState().timer
-        if (!restBeforeWarmup && restOnRecheck({ timerRunning: !!(rest && !rest.ready), unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) startRest(restAfter, idx, { forSet: i })
-        return
-      }
-
-      // With finished exercises folding away in the list, the one you just finished does too: the
-      // marker moves on to what is left, so the open unit is the next thing to do (Discord: "view
-      // only what I have yet to do"). The scroll anchor holds what is on screen while it folds,
-      // and revealCur brings the next exercise up if it was left low on the screen. Only on new
-      // progress, never on a re-tick, and never in the other layouts, where the marker stays put.
-      if (collapseOn && freshUnitDone && nextUnit && freshUnit?.includes(fresh.cur)) {
-        revealCur.current = true
-        update(s => { if (s.active) s.active.cur = nextUnit[0] })
-      }
-
-      // Between the two sides of one timed per-side set (a side plank's left, then its right):
-      // a short "Switch sides" pause instead of the set's whole rest, which comes once both
-      // sides are held (owner's call). A rest switched Off stays off.
-      const rows = fresh.entries[idx].sets
-      const sideOf = r => r && !isWarmupRow(r) ? r.side : null
-      const partner = sideOf(rows[i]) === 'L' && sideOf(rows[i + 1]) === 'R' ? rows[i + 1]
-        : sideOf(rows[i]) === 'R' && sideOf(rows[i - 1]) === 'L' ? rows[i - 1] : null
-      if (m === 'time' && partner && !partner.done && restAfter > 0) {
-        startRest(Math.min(SWITCH_SIDES_SEC, restAfter), idx, { kind: 'switch', forSet: i })
-        return
-      }
-
-      // Singleton units are ordinary exercises: they rest between sets and after the closing
-      // one unless the next unit has an unfinished warm-up, and never enter superset navigation.
-      // stopRest() first so a rest that belongs after this set replaces the one that was running.
-      if (freshUnitDone) stopRest()
-      if (!freshUnit || freshUnit.length <= 1) {
-        if (!restBeforeWarmup && restAfterSet({ unitDone: freshUnitDone, lastUnit: freshWorkoutDone })) startRest(restAfter, idx, { forSet: i })
-        onFocusProgress?.({ unitDone: freshUnitDone })
-        return
-      }
-
-      const step = supersetFlowStep(fresh.entries, freshUnit, idx)
-      if (!step) { onFocusProgress?.({ unitDone: freshUnitDone }); return }
-      if (step.unitDone) {
-        if (nextUnit?.length && !restBeforeWarmup) startRest(restAfter, idx, { forSet: i })
-      } else {
-        if (step.nextIdx != null) update(s => { if (s.active) s.active.cur = step.nextIdx })
-        if (step.roundDone) startRest(restAfter, idx, { forSet: i })
-      }
-      onFocusProgress?.({ unitDone: freshUnitDone })
-    }
+    if (!fresh || !checked || !fresh.entries[idx]) return
+    const progress = setProgressHighWater(fresh.entries[idx], progressHighWater.current[idx] || 0)
+    progressHighWater.current[idx] = progress.highWater
+    // With finished exercises folding away in the list, the one you just finished does too: the
+    // marker moves on to what is left (Discord: "view only what I have yet to do"), and
+    // revealCur brings the next exercise up if it was left low on the screen. Only on new
+    // progress, never on a re-tick, and never in the other layouts, where the marker stays put.
+    afterSetDone({
+      get: useStore.getState, update, useUI, S, idx, i, result: { checked },
+      isNew: progress.isNew, collapse: collapseOn, onCollapse: () => { revealCur.current = true },
+      startRest, stopRest, onFocusProgress,
+    })
   }
 
   // After the finished exercise folded away (toggle, above): the new current one is the next thing
