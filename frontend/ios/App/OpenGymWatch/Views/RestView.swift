@@ -36,21 +36,21 @@ private struct RestRing: View {
                 .stroke(.quaternary, lineWidth: 6)
             Circle()
                 .trim(from: 0, to: total > 0 ? CGFloat(left) / CGFloat(total) : 0)
-                .stroke(ready ? AnyShapeStyle(Color.green) : AnyShapeStyle(.tint), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                // The app tint is itself a green, so the ring is white until the heart rate says ready.
+                .stroke(ready ? AnyShapeStyle(Color.green) : AnyShapeStyle(Color.primary), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 1), value: left)
             VStack(spacing: 0) {
                 Text(Self.format(left))
                     .font(.system(size: 34, weight: .semibold, design: .rounded).monospacedDigit())
-                Text(paused ? "Paused" : "Rest")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
                 if ready {
-                    Text("Ready when you are")
-                        .font(.caption2)
+                    Text("Ready")
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(.green)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                } else {
+                    Text(paused ? "Paused" : "Rest")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
         }

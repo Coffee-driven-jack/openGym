@@ -23,7 +23,10 @@ extension SessionStore {
         restLeftWhenPaused = state.left
         restEndsAt = state.paused ? nil : state.endsAt
         // Once per rest: a new one comes with ready false, so only the turn to true taps.
-        if state.ready && !restReady { WKInterfaceDevice.current().play(.success) }
+        if state.ready && !restReady {
+            // Stronger than .success: this is the one tap that asks for attention during a rest.
+            WKInterfaceDevice.current().play(.notification)
+        }
         restReady = state.ready
         scheduleRestHaptics()
     }
