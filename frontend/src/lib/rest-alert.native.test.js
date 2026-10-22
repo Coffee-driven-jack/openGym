@@ -1,6 +1,6 @@
-// The Capacitor side of the rest alert (#296). The iOS app has no RestAlert plugin, and the
-// listener this file adds at startup used to reject there with nothing to catch it. On Android
-// the plugin is a Capacitor proxy that answers `then` with a native call that never settles, so
+// The Capacitor side of the rest alert (#296). Android and iOS (the Live Activity) both have a
+// RestAlert plugin; anything else must not register or call one — the listener this file adds at
+// startup used to reject on iOS, before it had one, with nothing to catch it. The plugin is a Capacitor proxy that answers `then` with a native call that never settles, so
 // it must never become the value of a promise (the Coach hang, #42): here that would hang every
 // rest alert call.
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,14 +14,14 @@ const h = vi.hoisted(() => {
 })
 
 // Shaped like the proxy registerPlugin() returns: every property is a native method, `then`
-// included, and that one never calls back. Off Android every method rejects, as Capacitor's do
+// included, and that one never calls back. Off Android and iOS every method rejects, as Capacitor's do
 // for a plugin the platform does not have.
 const pluginProxy = () => new Proxy({}, {
   get: (_, prop) => {
     if (prop === 'then') return () => new Promise(() => {})
     return (...args) => {
       h.calls.push(String(prop))
-      if (h.platform !== 'android') return Promise.reject(new Error(`"RestAlert.${String(prop)}()" is not implemented on ${h.platform}`))
+      if (h.platform !== 'android' && h.platform !== 'ios') return Promise.reject(new Error(`"RestAlert.${String(prop)}()" is not implemented on ${h.platform}`))
       return Promise.resolve(prop === 'addListener' ? { remove: async () => {} } : undefined)
     }
   },
@@ -59,8 +59,54 @@ afterAll(() => {
 })
 
 describe('the rest alert in the iOS app', () => {
-  it('registers nothing, rejects nothing and leaves the end to the server push', async () => {
+  // The Live Activity takes the same calls as the Android notification, and books the end
+  // natively, so the server push stays out of it.
+  it('reaches the plugin, registers it once and books the end itself', async () => {
     h.platform = 'ios'
+    const alert = await import('./rest-alert.js')
+    await expect(alert.armRestAlert(Date.now() + 90_000, { totalSec: 90 })).resolves.toBe(true)
+    alert.holdRestAlert(60, 90)
+    alert.setRestAccent('red')
+    alert.disarmRestAlert()
+    await settle()
+    expect(h.registerPlugin).toHaveBeenCalledTimes(1)
+    expect(h.calls).toContain('addListener')
+    expect(h.calls.filter(c => c !== 'addListener')).toEqual(['schedule', 'hold', 'setAccent', 'cancel'])
+    expect(unhandled).toEqual([])
+  })
+
+  it('passes the labels the Lock Screen shows, and the accent', async () => {
+    h.platform = 'ios'
+    const schedule = vi.fn(async () => {})
+    h.registerPlugin = vi.fn(() => new Proxy({}, {
+      get: (_, prop) => prop === 'then' ? () => new Promise(() => {}) : prop === 'schedule' ? schedule : async () => ({ remove: async () => {} }),
+    }))
+    const alert = await import('./rest-alert.js')
+    const at = Date.now() + 90_000
+    await alert.armRestAlert(at, { totalSec: 90, countdownTitle: 'Rest', accent: 'red', next: { name: 'Bench Press', set: 'Set 2/3', detail: '60×8' } })
+    expect(schedule).toHaveBeenCalledWith(expect.objectContaining({
+      at, totalMs: 90_000, countdownTitle: 'Rest', title: 'Rest’s over. Next set!', pause: 'Pause', resume: 'Resume', skip: 'Skip', minus: '− 15s', plus: '+ 15s',
+      accent: (0xff000000 | 0xff453a) >>> 0, ink: 0xffffffff,
+      nextName: 'Bench Press', nextSet: 'Set 2/3', nextDetail: '60×8',
+    }))
+  })
+
+  // The last set of the workout has nothing after it: the line under the clock stays empty.
+  it('sends empty strings for the next set when there is none', async () => {
+    h.platform = 'ios'
+    const schedule = vi.fn(async () => {})
+    h.registerPlugin = vi.fn(() => new Proxy({}, {
+      get: (_, prop) => prop === 'then' ? () => new Promise(() => {}) : prop === 'schedule' ? schedule : async () => ({ remove: async () => {} }),
+    }))
+    const alert = await import('./rest-alert.js')
+    await alert.armRestAlert(Date.now() + 90_000, { totalSec: 90 })
+    expect(schedule).toHaveBeenCalledWith(expect.objectContaining({ nextName: '', nextSet: '', nextDetail: '' }))
+  })
+})
+
+describe('the rest alert in a browser', () => {
+  it('registers nothing, rejects nothing and leaves the end to the server push', async () => {
+    h.platform = 'web'
     const alert = await import('./rest-alert.js')
     await expect(alert.armRestAlert(Date.now() + 90_000, { totalSec: 90 })).resolves.toBe(false)
     alert.holdRestAlert(60, 90)
@@ -166,11 +212,14 @@ describe('the alarm buzz in the Android app', () => {
     expect(calls.buzz).toHaveLength(1)
   })
 
-  it('answers false in the iOS app without touching any plugin', async () => {
+  // iOS has a RestAlert plugin (the Live Activity), but no alarm buzz on it: the call never
+  // reaches the native side, and the page buzzes the ordinary way.
+  it('answers false in the iOS app without asking the plugin to buzz', async () => {
     h.platform = 'ios'
     const alert = await import('./rest-alert.js')
     await expect(alert.buzzAsAlarm([200, 100, 200])).resolves.toBe(false)
-    expect(h.registerPlugin).not.toHaveBeenCalled()
+    await settle()
+    expect(h.calls).not.toContain('buzz')
     expect(unhandled).toEqual([])
   })
 })

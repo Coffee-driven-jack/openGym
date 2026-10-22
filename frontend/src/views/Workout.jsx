@@ -46,6 +46,7 @@ import { bestSetFor } from '../lib/exercise-history.js'
 import { isWarmupRow, isFailureSet, toggleFailure, isDropSet, isRestPauseSet, dropsOf, clustersOf, addDrop, addCluster, removeDropAt, removeClusterAt, setDropAt, setClusterAt, nextDropWeight, nextBurstReps, isSideSet, makeSideSet, setSideField, toggleSide, addSideDrop, removeSideDropAt, setSideDropAt, addSideCluster, removeSideClusterAt, setSideClusterAt, WEIGHT_ORIGIN_MANUAL } from '../lib/workout-model.js'
 import { canMoveActiveWorkoutUnit, moveActiveWorkoutUnit, canMoveActiveWorkoutEntry, moveActiveWorkoutEntry } from '../lib/active-workout-order.js'
 import { nextOpenSet, workoutKeyAction } from '../lib/workout-keys.js'
+import { bindLiveTick } from '../lib/live-set.js'
 import { MUSCLE_NAME } from '../lib/muscles.js'
 import FocusView from './FocusView.jsx'
 import { withMeaning, historyAs, dbLoadFor, entryDbLoad, bellsIn, ownedWeightsFor, stepOwned } from '../lib/dumbbells.js'
@@ -1749,6 +1750,11 @@ function ActiveWorkout() {
     if (window.requestAnimationFrame) window.requestAnimationFrame(scroll)
     else window.setTimeout(scroll, 0)
   }
+  // The Live Activity's Done (iOS, lib/live-set.js): the set the card showed, ticked the way a tap
+  // ticks it. Bound once and calling the latest render's toggle(), like the keys below.
+  const onLiveTick = useRef(null)
+  onLiveTick.current = ({ idx, i, side }) => toggle(idx, i, side)
+  useEffect(() => bindLiveTick(act => onLiveTick.current?.(act)), [])
   onKey.current = event => {
     // A sheet on top owns the keyboard (Escape closes it, Enter confirms in it).
     if (useUI.getState().sheets.length) return false

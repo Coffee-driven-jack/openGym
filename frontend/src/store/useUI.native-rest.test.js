@@ -14,6 +14,8 @@ vi.mock('../lib/rest-alert.js', () => ({
   disarmRestAlert: vi.fn(),
   bindNativeRest: vi.fn(cb => { h.native = cb }),
   toneNative: vi.fn(() => Promise.resolve(true)),
+  showWorkoutSet: vi.fn(),
+  endWorkoutActivity: vi.fn(),
 }))
 vi.mock('../lib/sound.js', () => ({ beep: vi.fn(), chime: vi.fn(), vibrate: vi.fn(), alertBuzz: vi.fn() }))
 vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({ ok: true })) }))
@@ -21,7 +23,7 @@ vi.mock('../lib/api.js', () => ({ api: vi.fn(() => Promise.resolve({ ok: true })
 import { useUI } from './useUI.js'
 import { useStore } from './useStore.js'
 import { api } from '../lib/api.js'
-import { armRestAlert, disarmRestAlert, holdRestAlert } from '../lib/rest-alert.js'
+import { armRestAlert, disarmRestAlert, endWorkoutActivity, holdRestAlert, showWorkoutSet } from '../lib/rest-alert.js'
 import { beep, chime } from '../lib/sound.js'
 import { toneNative } from '../lib/rest-alert.js'
 
@@ -41,7 +43,7 @@ beforeEach(() => {
   originalSettings = useStore.getState().S
   useStore.setState({ S: { ...originalSettings, sound: true, timerFlash: false }, user: null })
   useUI.setState({ timer: null, timerFlashId: 0 })
-  for (const f of [armRestAlert, holdRestAlert, disarmRestAlert, beep, chime, api, toneNative]) f.mockClear()
+  for (const f of [armRestAlert, holdRestAlert, disarmRestAlert, showWorkoutSet, endWorkoutActivity, beep, chime, api, toneNative]) f.mockClear()
   hide(false)
 })
 afterEach(() => {
@@ -59,6 +61,20 @@ describe('the rest the app starts, pauses and ends', () => {
     const second = armRestAlert.mock.calls.at(-1)[0]
     expect(second - first).toBe(15_000)
     expect(armRestAlert).toHaveBeenLastCalledWith(second, expect.objectContaining({ totalSec: 105, sound: true }))
+  })
+
+  // The iOS Lock Screen shows the set the rest is for under the clock (lib/rest-up-next.js).
+  it('tells the alert which set comes next, and nothing outside a workout', () => {
+    useStore.setState({ S: { ...useStore.getState().S, active: { cur: 0, entries: [
+      { id: 'custom-x', target: { reps: 8 }, sets: [{ w: 60, r: 8, done: true }, { w: 62.5, r: 8, done: false }] },
+    ] } } })
+    useUI.getState().startRest(90, 0)
+    expect(armRestAlert).toHaveBeenLastCalledWith(expect.any(Number), expect.objectContaining({
+      next: expect.objectContaining({ set: 'Set 2/2', detail: '62.5×8' }),
+    }))
+    useStore.setState({ S: { ...useStore.getState().S, active: null } })
+    useUI.getState().startRest(90)
+    expect(armRestAlert).toHaveBeenLastCalledWith(expect.any(Number), expect.objectContaining({ next: null }))
   })
 
   it('holds the notification when paused in the app and books the new end on resume', () => {
@@ -228,5 +244,80 @@ describe('the notification’s own buttons', () => {
     useUI.getState().startRest(90)
     h.native({ type: 'skip' })
     expect(useUI.getState().timer).toBe(null)
+  })
+})
+
+// The iOS workout card (lib/workout-activity.js): up as the session starts with its first set,
+// moved on as sets are ticked, down when the session ends — and quiet while only the rest ticks.
+describe('the workout on the Lock Screen', () => {
+  const session = () => ({ id: 'w', name: 'Push Day', start: 5_000, cur: 0, entries: [
+    { id: 'custom-x', target: { reps: 8 }, sets: [{ w: 60, r: 8, done: false }, { w: 60, r: 8, done: false }] },
+  ] })
+
+  it('shows the first set when the workout starts, the next one after a tick, and goes with the workout', () => {
+    useStore.setState({ S: { ...useStore.getState().S, active: session() } })
+    expect(showWorkoutSet).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Push Day', startedAt: 5_000, set: 'Set 1/2', detail: '60×8' }), expect.anything())
+
+    const a = session()
+    a.entries[0].sets[0].done = true
+    useStore.setState({ S: { ...useStore.getState().S, active: a } })
+    expect(showWorkoutSet).toHaveBeenLastCalledWith(expect.objectContaining({ set: 'Set 2/2' }), expect.anything())
+
+    useStore.setState({ S: { ...useStore.getState().S, active: null } })
+    expect(endWorkoutActivity).toHaveBeenCalled()
+  })
+
+  // The app's selection is the card's, rests included: picking another exercise moves it there.
+  it('follows the exercise selected in the app, even during a rest', () => {
+    const two = () => ({ ...session(), entries: [...session().entries, { id: 'custom-y', target: { reps: 10 }, sets: [{ w: 40, r: 10, done: false }] }] })
+    useStore.setState({ S: { ...useStore.getState().S, active: two() } })
+    useUI.getState().startRest(90, 0)
+    expect(showWorkoutSet).toHaveBeenLastCalledWith(expect.objectContaining({ idx: 0, detail: '60×8' }), expect.anything())
+    useStore.setState({ S: { ...useStore.getState().S, active: { ...two(), cur: 1 } } })
+    expect(showWorkoutSet).toHaveBeenLastCalledWith(expect.objectContaining({ idx: 1, i: 0, detail: '40×10' }), expect.anything())
+    useStore.setState({ S: { ...useStore.getState().S, active: null } })
+  })
+
+  it('does not call the plugin every second while a rest counts down', () => {
+    useStore.setState({ S: { ...useStore.getState().S, active: session() } })
+    useUI.getState().startRest(90, 0)
+    const calls = showWorkoutSet.mock.calls.length
+    vi.advanceTimersByTime(10_000)
+    expect(showWorkoutSet.mock.calls.length).toBe(calls)
+    useStore.setState({ S: { ...useStore.getState().S, active: null } })
+  })
+})
+
+// The workout card's Done (lib/workout-activity.js liveSetAction).
+describe('the workout card’s Done', () => {
+  const session = () => ({ id: 'w', name: 'Push Day', start: 5_000, cur: 0, entries: [
+    { id: 'custom-x', target: { reps: 8 }, sets: [{ w: 60, r: 8, done: false }, { w: 60, r: 8, done: false }] },
+  ] })
+  const setAt = i => useStore.getState().S.active.entries[0].sets[i]
+  afterEach(() => { useStore.setState({ S: { ...useStore.getState().S, active: null } }) })
+
+  it('ticks through the workout screen when it is open', async () => {
+    const { bindLiveTick } = await import('../lib/live-set.js')
+    const tick = vi.fn()
+    const unbind = bindLiveTick(tick)
+    useStore.setState({ S: { ...useStore.getState().S, active: session() } })
+    h.native({ type: 'set', action: 'done', idx: 0, i: 0 })
+    expect(tick).toHaveBeenCalledWith(expect.objectContaining({ kind: 'tick', idx: 0, i: 0 }))
+    unbind()
+  })
+
+  it('marks the set done in the store when the workout screen is not open', () => {
+    useStore.setState({ S: { ...useStore.getState().S, active: session() } })
+    h.native({ type: 'set', action: 'done', idx: 0, i: 1 })
+    expect(setAt(1).done).toBe(true)
+    expect(setAt(0).done).toBe(false)
+  })
+
+  it('ignores a Done for a set that was ticked in the meantime', () => {
+    const a = session()
+    a.entries[0].sets[0].done = true
+    useStore.setState({ S: { ...useStore.getState().S, active: a } })
+    h.native({ type: 'set', action: 'done', idx: 0, i: 0 })
+    expect(setAt(1).done).toBe(false)
   })
 })

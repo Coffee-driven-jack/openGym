@@ -10,6 +10,7 @@ import { effectiveLang } from './lib/default-lang.js'
 import { setPlayOnSilent, setVibrate, setAlarmBuzzer } from './lib/sound.js'
 import { buzzAsAlarm } from './lib/rest-alert.js'
 import { setNav } from './lib/nav.js'
+import { initWorkoutLinks } from './lib/workout-link.js'
 import { setSystemBarsLight } from './lib/system-bars.js'
 import { initBackButton } from './lib/back.js'
 import { useWakeLock } from './lib/wakelock.js'
@@ -83,6 +84,9 @@ function Shell() {
   const needsMobileOnboarding = useStore(s => s.needsMobileOnboarding)
   const langV = useLang()   // re-renders the whole shell when the language (pack) changes
   useEffect(() => { setNav(navigate) }, [navigate])
+  // A tap on the iOS Live Activity opens the exercise it shows (lib/workout-link.js). After setNav,
+  // so a link that launched the app finds the router ready.
+  useEffect(() => { if (MOBILE) initWorkoutLinks() }, [])
   const lastEditPath = useRef(loc.pathname)
   // Any in-app route exit, browser back included, returns to the persisted draft and asks for a
   // save decision. Reload needs no prompt because the draft itself is already in local storage.
