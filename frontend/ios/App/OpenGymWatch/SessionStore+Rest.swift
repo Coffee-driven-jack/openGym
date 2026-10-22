@@ -22,6 +22,9 @@ extension SessionStore {
         restPaused = state.paused
         restLeftWhenPaused = state.left
         restEndsAt = state.paused ? nil : state.endsAt
+        // Once per rest: a new one comes with ready false, so only the turn to true taps.
+        if state.ready && !restReady { WKInterfaceDevice.current().play(.success) }
+        restReady = state.ready
         scheduleRestHaptics()
     }
 
@@ -50,6 +53,7 @@ extension SessionStore {
         restPaused = false
         restLeftWhenPaused = 0
         restTotal = 0
+        restReady = false
     }
 
     /// A tap at ten seconds left and the notification haptic at zero, then the countdown goes.

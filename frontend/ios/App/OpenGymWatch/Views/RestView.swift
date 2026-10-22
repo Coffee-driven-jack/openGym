@@ -7,7 +7,7 @@ struct RestView: View {
     var body: some View {
         VStack(spacing: 6) {
             TimelineView(.periodic(from: .now, by: 1)) { context in
-                RestRing(left: left(at: context.date), total: store.restTotal, paused: store.restPaused)
+                RestRing(left: left(at: context.date), total: store.restTotal, paused: store.restPaused, ready: store.restReady)
             }
             HStack(spacing: 8) {
                 Button("+15 s") { store.addFifteen() }
@@ -28,6 +28,7 @@ private struct RestRing: View {
     let left: Int
     let total: Int
     let paused: Bool
+    let ready: Bool
 
     var body: some View {
         ZStack {
@@ -35,7 +36,7 @@ private struct RestRing: View {
                 .stroke(.quaternary, lineWidth: 6)
             Circle()
                 .trim(from: 0, to: total > 0 ? CGFloat(left) / CGFloat(total) : 0)
-                .stroke(.tint, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                .stroke(ready ? AnyShapeStyle(Color.green) : AnyShapeStyle(.tint), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .animation(.linear(duration: 1), value: left)
             VStack(spacing: 0) {
@@ -44,6 +45,13 @@ private struct RestRing: View {
                 Text(paused ? "Paused" : "Rest")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                if ready {
+                    Text("Ready when you are")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                }
             }
         }
         .frame(width: 110, height: 110)

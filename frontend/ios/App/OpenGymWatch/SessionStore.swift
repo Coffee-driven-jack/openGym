@@ -29,6 +29,8 @@ final class SessionStore: ObservableObject {
     @Published var restTotal = 0
     @Published var restPaused = false
     @Published var restLeftWhenPaused = 0
+    /// The phone judged the heart rate back down (lib/hr-readiness.js): advice, the timer still runs.
+    @Published var restReady = false
     @Published private(set) var needsHealthAccess = false
 
     let link: ConnectivityManager

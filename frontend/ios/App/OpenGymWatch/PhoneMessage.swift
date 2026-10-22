@@ -33,8 +33,9 @@ enum PhoneMessage: Sendable, Equatable {
         let total = Int(number(rest["total"]) ?? 0)
         let left = Int(number(rest["left"]) ?? 0)
         let endsAt = number(rest["endsAt"]).map(date)
+        let ready = rest["ready"] as? Bool ?? false
         if !paused && endsAt == nil { return .rest(nil, at: date(at)) }
-        return .rest(RestState(endsAt: endsAt, total: total, paused: paused, left: left), at: date(at))
+        return .rest(RestState(endsAt: endsAt, total: total, paused: paused, left: left, ready: ready), at: date(at))
     }
 
     private static func number(_ value: Any?) -> Double? {
@@ -52,6 +53,8 @@ struct RestState: Sendable, Equatable {
     let total: Int
     let paused: Bool
     let left: Int
+    /// The heart rate came back down: the phone says the next set can start.
+    let ready: Bool
 }
 
 /// Milliseconds since 1970, the unit every timestamp on the wire uses.

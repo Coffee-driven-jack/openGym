@@ -16,7 +16,7 @@ import os
  *   await W.status();                          // { supported, paired, appInstalled, reachable }
  *   await W.startSession({ id, name, start }); // { sent: 'message' | 'transfer' }
  *   await W.endSession({ id, end, discard });  // { sent: 'message' | 'transfer' }
- *   await W.rest({ endsAt, total, paused, left });
+ *   await W.rest({ endsAt, total, paused, left, ready }); // ready: heart rate back down (lib/hr-readiness.js)
  *   await W.clearRest();
  *   W.addListener('heartRate' | 'watchState' | 'restAction' | 'reachability', cb);
  */
@@ -76,6 +76,7 @@ public class WatchLinkPlugin: CAPPlugin, WCSessionDelegate {
             "total": call.getInt("total") ?? 0,
             "paused": call.getBool("paused") ?? false,
             "left": call.getInt("left") ?? 0,
+            "ready": call.getBool("ready") ?? false,
             "at": Self.now(),
         ]
         if let endsAt = call.getDouble("endsAt") { rest["endsAt"] = endsAt }
