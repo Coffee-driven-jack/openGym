@@ -3,9 +3,9 @@ import WatchConnectivity
 import os
 
 /// The watch's end of WatchConnectivity. Start and end come by message when the watch app is
-/// reachable and by userInfo transfer otherwise, the rest timer by application context; all three
-/// go through `deliver`. Everything sent back is a message, with state changes falling back to a
-/// transfer so an `ended` always reaches the phone.
+/// reachable and by userInfo transfer otherwise, the rest timer and the current set by application
+/// context; all of them go through `deliver`. Everything sent back is a message, with state changes
+/// and logged sets falling back to a transfer so an `ended` or a set always reaches the phone.
 @MainActor
 final class ConnectivityManager: NSObject {
 
@@ -46,6 +46,14 @@ final class ConnectivityManager: NSObject {
         }
     }
 
+    /// Completed on the wrist: reliable, since the phone may be asleep and the set must not be lost.
+    func sendSetDone(_ set: SetState, weight: Double, reps: Int, at: Date) {
+        sendReliably([
+            "type": "set", "action": "done", "id": set.workoutId, "entryId": set.entryId,
+            "idx": set.idx, "i": set.i, "w": weight, "r": reps, "at": at.millis,
+        ])
+    }
+
     private var activeSession: WCSession? {
         guard WCSession.isSupported() else { return nil }
         let session = WCSession.default
@@ -66,9 +74,8 @@ final class ConnectivityManager: NSObject {
         }
     }
 
-    private func handle(_ message: PhoneMessage?) {
-        guard let message else { return }
-        onMessage?(message)
+    private func handle(_ messages: [PhoneMessage]) {
+        messages.forEach { onMessage?($0) }
     }
 }
 
@@ -102,7 +109,7 @@ extension ConnectivityManager: WCSessionDelegate {
     }
 
     private nonisolated func deliver(_ payload: [String: Any]) {
-        let message = PhoneMessage.parse(payload)
-        Task { @MainActor in self.handle(message) }
+        let messages = PhoneMessage.parseAll(payload)
+        Task { @MainActor in self.handle(messages) }
     }
 }

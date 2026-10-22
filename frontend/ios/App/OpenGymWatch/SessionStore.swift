@@ -32,10 +32,14 @@ final class SessionStore: ObservableObject {
     /// The phone judged the heart rate back down (lib/hr-readiness.js): advice, the timer still runs.
     @Published var restReady = false
     @Published private(set) var needsHealthAccess = false
+    /// The set to log on the wrist (SessionStore+Set), and the one just marked done here.
+    @Published var currentSet: SetState?
+    @Published var pendingDone: PendingSet?
 
     let link: ConnectivityManager
     var restAppliedAt = Date.distantPast
     var restHaptics: Task<Void, Never>?
+    var setAppliedAt = Date.distantPast
 
     private let workouts: WorkoutSessionManager
     private let log = Logger(subsystem: "ch.duartesantos.opengym.watchkitapp", category: "Store")
@@ -61,8 +65,24 @@ final class SessionStore: ObservableObject {
         link.onMessage = { [weak self] message in self?.enqueue(message) }
         link.activate()
         needsHealthAccess = workouts.healthAvailable && workouts.needsAuthorization
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-demoSet") { showDemoSet(); return }
+        #endif
         enqueue { store in await store.recover() }
     }
+
+    #if DEBUG
+    /// Simulator only: a running workout with a set on the wrist, to look at SetView without a phone.
+    private func showDemoSet() {
+        phase = .running(workoutId: "demo", name: "Push", since: Date().addingTimeInterval(-754))
+        bpm = 128
+        currentSet = SetState(workoutId: "demo", entryId: "0289", name: "Dumbbell Bench Press", idx: 1, i: 1,
+                              setNo: 2, setCount: 3, warmup: false, mode: "reps", weight: 22.5, reps: 10,
+                              unit: "kg", each: true, step: 2.5, nextName: "Cable Fly")
+        // A short rest first: its end lands on the set page, as after a real one.
+        applyRest(RestState(endsAt: Date().addingTimeInterval(8), total: 8, paused: false, left: 8, ready: false), at: Date())
+    }
+    #endif
 
     func requestHealthAccess() async {
         do {
@@ -78,6 +98,10 @@ final class SessionStore: ObservableObject {
     private func enqueue(_ message: PhoneMessage) {
         if case let .rest(state, at) = message {
             applyRest(state, at: at)
+            return
+        }
+        if case let .set(state, at) = message {
+            applySet(state, at: at)
             return
         }
         enqueue { store in await store.run(message) }
@@ -98,7 +122,7 @@ final class SessionStore: ObservableObject {
             await start(id: id, name: name, startedAt: startedAt)
         case let .end(id, discard, endedAt):
             await end(id: id, discard: discard, endedAt: endedAt)
-        case .rest:
+        case .rest, .set:
             break
         }
     }
@@ -148,6 +172,7 @@ final class SessionStore: ObservableObject {
         let late = Date().timeIntervalSince(endedAt) > Self.lateEnd
         phase = .ending
         clearRest()
+        clearSet()
         do {
             let outcome = try await workouts.end(discard: discard || late, at: min(endedAt, Date()))
             switch outcome {
