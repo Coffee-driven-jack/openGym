@@ -261,7 +261,7 @@ removes it there; turning it off with "remove" leaves no openGym object behind.
 The iOS app embeds a small watchOS app (`ios/App/OpenGymWatch/`, SwiftUI, watchOS 11+, target
 `OpenGymWatch` added by `ios/App/scripts/add-watch-target.rb`). While a workout runs on the phone,
 the watch runs an `HKWorkoutSession`, so Health samples heart rate at workout rate and keeps one
-workout with that heart rate attached. There is no set logging on the watch.
+workout with that heart rate attached. The current set can be logged from the wrist (below).
 
 - **The link** (`src/lib/watch-link.js`, `ios/App/App/WatchLinkPlugin.swift`): starting a workout
   launches the watch app through HealthKit and sends it the workout's id, name and start, by
@@ -290,6 +290,20 @@ workout with that heart rate attached. There is no set logging on the watch.
   ♥ Ready on the rest bar and goes to the watch as `ready` in the rest context: the ring turns
   green, "Ready when you are" shows and the watch taps once. It is advice only: the countdown
   keeps running as the limit and Skip still ends the rest. The watch evaluates nothing itself.
+- **Logging sets from the wrist:** the watch's second page (swipe up from the heart rate) shows
+  the set you are on: the exercise, "Set 2 of 3" (or Warm-up), and two dials, load and reps,
+  that start at the planned numbers. Tap a dial and the Digital Crown turns it; the load moves
+  in the exercise's increment (per hand for dumbbells counted "each"). **Completed** sends the
+  set to the phone, which logs it through the same path as a tick on the workout screen
+  (`src/lib/set-done.js`): the set is stamped, the rest starts, a superset moves to its partner,
+  and a toast says "Set logged from your watch". The phone stays the record: the current set
+  (`src/lib/watch-set.js` `currentSetFor`) goes to the watch in the application context beside
+  the rest (the plugin keeps both and always sends the two together), follows every change on
+  the phone, and wins over what the watch guessed. Completed goes as a message with a
+  `transferUserInfo` fallback, so a set logged while the phone sleeps arrives when it wakes; a
+  set from another workout, one already done, or one that moved is ignored and the watch gets
+  the current set again. Timed and cardio sets say "Log this one on your iPhone". After a rest
+  the watch lands on the set page.
 - **Project setup:** the App target depends on `OpenGymWatch` and embeds it in `Watch/` (the
   "Embed Watch Content" phase). The watch target has its own HealthKit entitlement
   (`OpenGymWatch/OpenGymWatch.entitlements`), the `workout-processing` background mode

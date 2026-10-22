@@ -16,6 +16,9 @@
   says when you are ready for the next set: once your heart rate is back under your target
   (110 bpm by default, or taken from your last workout) and at least 45 s have passed, the rest
   bar shows ♥ Ready and the watch turns green with a tap. The timer still runs as the limit.
+- **Log sets from your Apple Watch.** Swipe up on the watch for the set you are on: load and
+  reps on two dials you turn with the Digital Crown, and Completed logs it on the iPhone, starts
+  the rest and moves on to the next set. Timed and cardio sets stay on the phone.
 
 ## v1.4.1 (2026-10-10)
 
