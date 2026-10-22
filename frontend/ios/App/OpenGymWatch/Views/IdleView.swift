@@ -12,6 +12,7 @@ struct IdleView: View {
                 Text("Start a workout on your iPhone")
                     .font(.headline)
                     .multilineTextAlignment(.center)
+                BuildStamp()
                 if case let .failed(message) = store.phase {
                     Text(message)
                         .font(.footnote)

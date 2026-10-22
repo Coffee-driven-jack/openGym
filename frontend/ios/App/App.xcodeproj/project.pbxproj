@@ -22,11 +22,8 @@
 		6DAD8CB9339AD874153A733B /* OpenGymWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97F15F5BEB3208C7EA78BE34 /* OpenGymWatchApp.swift */; };
 		7CCBF6A337F9B8DE8EFF41CA /* ActiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C262493F6988873ABABC9C3 /* ActiveView.swift */; };
 		851820D7E7A87CD68A21752E /* RestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CEAC25E6EB0165CE175408A /* RestView.swift */; };
-		BB0700000000000000000006 /* DialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0700000000000000000005 /* DialView.swift */; };
-		BB0700000000000000000004 /* SetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0700000000000000000003 /* SetView.swift */; };
 		94DC089812B4057F442A5900 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E9D921A750166787E649317B /* Assets.xcassets */; };
 		963BCE480F303EFFC111AF71 /* SessionStore+Rest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ACC75596889A4B7E67EC017 /* SessionStore+Rest.swift */; };
-		BB0700000000000000000002 /* SessionStore+Set.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0700000000000000000001 /* SessionStore+Set.swift */; };
 		9668D1CD541AA27D2DD4378A /* WatchAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82A07C36CD213E53D3FAF838 /* WatchAppDelegate.swift */; };
 		A084ECDBA7D38E1E42DFC39D /* Pods_App.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */; };
 		AA0000000000000000000002 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000001 /* SceneDelegate.swift */; };
@@ -37,7 +34,11 @@
 		AA010000000000000000000A /* HealthKitPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = AA0100000000000000000009 /* HealthKitPlugin.m */; };
 		AA010000000000000000000D /* WatchLinkPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA010000000000000000000C /* WatchLinkPlugin.swift */; };
 		AA010000000000000000000F /* WatchLinkPlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = AA010000000000000000000E /* WatchLinkPlugin.m */; };
+		BB0700000000000000000002 /* SessionStore+Set.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0700000000000000000001 /* SessionStore+Set.swift */; };
+		BB0700000000000000000004 /* SetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0700000000000000000003 /* SetView.swift */; };
+		BB0700000000000000000006 /* DialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB0700000000000000000005 /* DialView.swift */; };
 		C5367BC470CD3205DE4DC11D /* SessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94262A0728AA9011E3D3B332 /* SessionStore.swift */; };
+		C9799D934FC8F0825DCA38E2 /* BuildStamp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 685D23740A7FBB47E495C41A /* BuildStamp.swift */; };
 		E6684CB9C3B086268EAC0382 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8DA33CD4455EB5201AD5C8 /* RootView.swift */; };
 		ECFBBE66D6FC5DB5E8BDF12F /* IdleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17260DBD247C23973D4C2C77 /* IdleView.swift */; };
 /* End PBXBuildFile section */
@@ -80,12 +81,10 @@
 		504EC3131FED79650016851F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		5ACC75596889A4B7E67EC017 /* SessionStore+Rest.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SessionStore+Rest.swift"; sourceTree = "<group>"; };
-		BB0700000000000000000001 /* SessionStore+Set.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SessionStore+Set.swift"; sourceTree = "<group>"; };
 		5B8DA33CD4455EB5201AD5C8 /* RootView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		6110B79F7462816A3FAB52BA /* OpenGymWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OpenGymWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		685D23740A7FBB47E495C41A /* BuildStamp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = BuildStamp.swift; sourceTree = "<group>"; };
 		6CEAC25E6EB0165CE175408A /* RestView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RestView.swift; sourceTree = "<group>"; };
-		BB0700000000000000000005 /* DialView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DialView.swift; sourceTree = "<group>"; };
-		BB0700000000000000000003 /* SetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetView.swift; sourceTree = "<group>"; };
 		76432007F41D7168B5E196C9 /* OpenGymWatch.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = OpenGymWatch.entitlements; sourceTree = "<group>"; };
 		7C262493F6988873ABABC9C3 /* ActiveView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ActiveView.swift; sourceTree = "<group>"; };
 		7E9AB7CCFF7798993CBAC4DA /* PhoneMessage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PhoneMessage.swift; sourceTree = "<group>"; };
@@ -98,11 +97,14 @@
 		AA0100000000000000000005 /* BridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeViewController.swift; sourceTree = "<group>"; };
 		AA0100000000000000000007 /* HealthKitPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitPlugin.swift; sourceTree = "<group>"; };
 		AA0100000000000000000009 /* HealthKitPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HealthKitPlugin.m; sourceTree = "<group>"; };
+		AA010000000000000000000B /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		AA010000000000000000000C /* WatchLinkPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchLinkPlugin.swift; sourceTree = "<group>"; };
 		AA010000000000000000000E /* WatchLinkPlugin.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = WatchLinkPlugin.m; sourceTree = "<group>"; };
-		AA010000000000000000000B /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 		AF277DCFFFF123FFC6DF26C7 /* Pods_App.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_App.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF51FD2D460BCFE21FA515B2 /* Pods-App.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-App.release.xcconfig"; path = "Pods/Target Support Files/Pods-App/Pods-App.release.xcconfig"; sourceTree = "<group>"; };
+		BB0700000000000000000001 /* SessionStore+Set.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "SessionStore+Set.swift"; sourceTree = "<group>"; };
+		BB0700000000000000000003 /* SetView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SetView.swift; sourceTree = "<group>"; };
+		BB0700000000000000000005 /* DialView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DialView.swift; sourceTree = "<group>"; };
 		CDF7675CDA68D0F711153D94 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E9D921A750166787E649317B /* Assets.xcassets */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F250D1DEBC72E99B3DF52FC2 /* ConnectivityManager.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ConnectivityManager.swift; sourceTree = "<group>"; };
@@ -146,6 +148,7 @@
 				BB0700000000000000000005 /* DialView.swift */,
 				BB0700000000000000000003 /* SetView.swift */,
 				5B8DA33CD4455EB5201AD5C8 /* RootView.swift */,
+				685D23740A7FBB47E495C41A /* BuildStamp.swift */,
 			);
 			name = Views;
 			path = Views;
@@ -400,6 +403,7 @@
 				E6684CB9C3B086268EAC0382 /* RootView.swift in Sources */,
 				9668D1CD541AA27D2DD4378A /* WatchAppDelegate.swift in Sources */,
 				146803DF8F844BA55440B41A /* WorkoutSessionManager.swift in Sources */,
+				C9799D934FC8F0825DCA38E2 /* BuildStamp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

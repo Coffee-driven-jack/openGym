@@ -37,6 +37,7 @@ struct ActiveView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(2)
                 .multilineTextAlignment(.center)
+            BuildStamp()
         }
     }
 }
