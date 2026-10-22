@@ -46,6 +46,41 @@ describe('the rest timer on the watch', () => {
     expect(last()).toMatchObject({ paused: true })
   })
 
+  it('marks the rest ready by heart rate and tells the watch', () => {
+    const ui = useUI.getState()
+    ui.startRest(90, 0)
+    expect(useUI.getState().timer.startedAt).toBe(Date.now())
+    expect(useUI.getState().timer.hrReady).toBeUndefined()
+    const n = watchRest.mock.calls.length
+    ui.setHrReady(true)
+    expect(useUI.getState().timer.hrReady).toBe(true)
+    expect(watchRest.mock.calls.length).toBe(n + 1)
+    expect(last()).toMatchObject({ left: 90, hrReady: true })
+    ui.setHrReady(true)
+    expect(watchRest.mock.calls.length).toBe(n + 1)
+    vi.advanceTimersByTime(5000)
+    expect(useUI.getState().timer).toMatchObject({ left: 85, hrReady: true })
+    ui.pauseRest()
+    expect(last()).toMatchObject({ paused: true, hrReady: true })
+  })
+
+  it('starts every rest not ready, and marks nothing without one running', () => {
+    const ui = useUI.getState()
+    ui.setHrReady(true)
+    expect(useUI.getState().timer).toBeNull()
+    ui.startRest(90, 0)
+    ui.setHrReady(true)
+    vi.advanceTimersByTime(1000)
+    ui.startRest(60, 1)
+    expect(useUI.getState().timer.hrReady).toBeUndefined()
+    expect(useUI.getState().timer.startedAt).toBe(Date.now())
+    vi.advanceTimersByTime(60000)
+    expect(useUI.getState().timer.ready).toBe(true)
+    const n = watchRest.mock.calls.length
+    ui.setHrReady(true)
+    expect(watchRest.mock.calls.length).toBe(n)
+  })
+
   it('is not sent on every tick of the countdown', () => {
     useUI.getState().startRest(90, 0)
     const n = watchRest.mock.calls.length

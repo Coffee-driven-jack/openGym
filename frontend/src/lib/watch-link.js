@@ -101,7 +101,7 @@ export async function watchEndSession(id, { discard = false, end: at } = {}) {
   } catch { return null }
 }
 
-/** The rest timer of useUI, mirrored on the wrist while the watch records a workout; null clears it. */
+/** The rest timer of useUI, mirrored on the wrist while the watch records a workout; null clears it. `ready`: the heart rate is back down (lib/hr-readiness.js). */
 export async function watchRest(timer) {
   if (!MOBILE) return
   try {
@@ -113,7 +113,8 @@ export async function watchRest(timer) {
     const paused = !!timer.paused
     const total = Math.max(0, Math.round(timer.total || 0))
     const left = Math.max(0, Math.round(timer.left || 0))
-    await p.W.rest(paused ? { total, paused, left } : { endsAt: timer.endsAt, total, paused, left })
+    const ready = !!timer.hrReady
+    await p.W.rest(paused ? { total, paused, left, ready } : { endsAt: timer.endsAt, total, paused, left, ready })
   } catch { /* the watch shows its own countdown until the next change */ }
 }
 

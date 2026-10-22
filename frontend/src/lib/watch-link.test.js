@@ -133,10 +133,19 @@ describe('the rest timer on the wrist', () => {
     await wl.watchRest({ left: 0, total: 90, endsAt: T0 + 90000, ready: true })
     await wl.watchRest(null)
     expect(h.calls.filter(c => c[0] === 'rest' || c[0] === 'clearRest')).toEqual([
-      ['rest', { endsAt: T0 + 90000, total: 90, paused: false, left: 90 }],
-      ['rest', { total: 90, paused: true, left: 42 }],
+      ['rest', { endsAt: T0 + 90000, total: 90, paused: false, left: 90, ready: false }],
+      ['rest', { total: 90, paused: true, left: 42, ready: false }],
       ['clearRest'],
       ['clearRest'],
+    ])
+  })
+  it('says when the heart rate is back down', async () => {
+    await wl.watchStartSession(active())
+    await wl.watchRest({ left: 30, total: 90, endsAt: T0 + 30000, hrReady: true })
+    await wl.watchRest({ left: 30, total: 90, endsAt: T0 + 30000, paused: true, hrReady: true })
+    expect(sent('rest')).toEqual([
+      { endsAt: T0 + 30000, total: 90, paused: false, left: 30, ready: true },
+      { total: 90, paused: true, left: 30, ready: true },
     ])
   })
   it('sends nothing with no workout on the watch', async () => {
