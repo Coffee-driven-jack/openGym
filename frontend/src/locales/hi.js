@@ -2269,4 +2269,5 @@ export default {
   'Ready under': 'इससे नीचे तैयार',
   'Not before': 'इससे पहले नहीं',
   'Use my last workout': 'मेरा पिछला वर्कआउट इस्तेमाल करें',
+  'Set logged from your watch': 'आपकी घड़ी से सेट दर्ज किया गया',
 }

@@ -9,7 +9,9 @@ import { guestAllowed } from '../lib/guest.js'
 import { MOBILE, initReminderSync, nativeLoad, nativeSave, onAppActive, readJsonFile, syncReminder, writeAutoBackup, writeJsonFile } from '../lib/mobile.js'
 import { fetchHeartRate, initHealthSync, syncHealth } from '../lib/health-sync.js'
 import { betterHr } from '../lib/heart-rate.js'
-import { initWatchLink } from '../lib/watch-link.js'
+import { initWatchLink, watchSet } from '../lib/watch-link.js'
+import { currentSetFor } from '../lib/watch-set.js'
+import { applySetDone, afterSetDone } from '../lib/set-done.js'
 import { refillIfComplete } from '../lib/rotation.js'
 import { liftLegacy } from '../lib/sync-legacy.js'
 import { mergeStates, localExtras, stampChange, stampWorkout, highestStamp, stampRestore, stampReplace, inUnitOf, keepReset, resetIdsOf, mergeResetIds, entryKey } from '../lib/sync-merge.js'
@@ -479,9 +481,12 @@ export const useStore = create((set, get) => {
   initReminderSync(() => get().S)
   initHealthSync(() => get().S, () => get().refreshLastHeartRate())
   // The watch app: its saved workout carries the heart rate, read back at once; one it could not
-  // save is the Health export's to write after all; its +15 s and Skip work the phone's timer.
+  // save is the Health export's to write after all; its +15 s and Skip work the phone's timer;
+  // its Completed logs the set here, and a session it starts gets the current set at once.
   initWatchLink({
     getState: () => get().S,
+    onSetDone: ev => { get().logWatchSet(ev).catch(() => {}) },
+    onRunning: () => sendWatchSet(true),
     onEnded: id => get().attachHeartRate(id).catch(() => {}),
     onFailed: () => syncHealth(get().S).catch(() => {}),
     onRestAction: action => import('./useUI.js').then(({ useUI }) => {
@@ -1333,6 +1338,27 @@ export const useStore = create((set, get) => {
       set({ coachLocal: coachDeviceSettings(await saveCoachDevice(patch)) })
     },
 
+    // A set ticked on the watch (Completed), through the same flow as a tick on the workout screen
+    // (lib/set-done.js). The phone stays the record: a set from another workout, one already done,
+    // or one that moved since the watch saw it changes nothing, and the watch is sent what is
+    // current instead. True when it was logged.
+    async logWatchSet(ev) {
+      const { useUI } = await import('./useUI.js')
+      const A = get().S.active
+      if (!A || A.backfill || A.editingWorkoutId || ev?.id == null || String(A.id) !== String(ev.id)) return false
+      const { idx, i } = ev
+      const e = A.entries?.[idx]
+      const set = e?.sets?.[i]
+      if (!set || String(e.id) !== String(ev.entryId) || set.done) { sendWatchSet(true); return false }
+      const load = v => (Number.isFinite(v) && v >= 0 ? v : undefined)
+      const at = Number(ev.at) > 0 ? Number(ev.at) : Date.now()
+      let result = null
+      get().update(s => { result = applySetDone(s, idx, i, { at, w: load(ev.w), r: load(ev.r) }) })
+      afterSetDone({ get, update: get().update, useUI, S: get().S, idx, i, result })
+      useUI.getState().toast(t('Set logged from your watch'))
+      return true
+    },
+
     // Heart rate from Apple Health for a finished workout (iOS, when turned on): kept only when the
     // fetch brings more samples than the workout has, since the watch's land in Health late.
     async attachHeartRate(id) {
@@ -2016,5 +2042,24 @@ export const useStore = create((set, get) => {
     }
   }
 })
+
+// The watch's current set (lib/watch-set.js) follows every change to the active workout: a tick,
+// an edit, a reorder, the finish. Sent again only when it changed, unless `force`.
+let watchSetTm = null
+let watchSetSent
+function sendWatchSet(force = false) {
+  const payload = currentSetFor(useStore.getState().S)
+  const key = JSON.stringify(payload)
+  if (!force && key === watchSetSent) return
+  watchSet(payload).then(ok => { if (ok) watchSetSent = key }).catch(() => {})
+}
+export function followWatchSet(delay = 300) {
+  return useStore.subscribe((st, prev) => {
+    if (st.S?.active === prev.S?.active) return
+    clearTimeout(watchSetTm)
+    watchSetTm = setTimeout(() => sendWatchSet(), delay)
+  })
+}
+if (MOBILE) followWatchSet()
 
 export { hasData }

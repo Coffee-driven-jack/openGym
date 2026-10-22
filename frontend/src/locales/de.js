@@ -2289,4 +2289,5 @@ export default {
   'Ready under': 'Bereit unter',
   'Not before': 'Nicht vor',
   'Use my last workout': 'Letztes Workout verwenden',
+  'Set logged from your watch': 'Satz von deiner Watch eingetragen',
 }

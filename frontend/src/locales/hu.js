@@ -2272,4 +2272,5 @@ export default {
   'Ready under': 'Kész ez alatt',
   'Not before': 'Nem korábban, mint',
   'Use my last workout': 'Utolsó edzésem alapján',
+  'Set logged from your watch': 'Sorozat rögzítve az órádról',
 }

@@ -2269,4 +2269,5 @@ export default {
   'Ready under': 'Şunun altında hazır',
   'Not before': 'Şundan önce değil',
   'Use my last workout': 'Son antrenmanımı kullan',
+  'Set logged from your watch': 'Set saatinden kaydedildi',
 }

@@ -2280,4 +2280,5 @@ export default {
   'Ready under': 'พร้อมเมื่อต่ำกว่า',
   'Not before': 'ไม่ก่อน',
   'Use my last workout': 'ใช้การออกกำลังกายครั้งล่าสุด',
+  'Set logged from your watch': 'บันทึกเซ็ตจากนาฬิกาแล้ว',
 }

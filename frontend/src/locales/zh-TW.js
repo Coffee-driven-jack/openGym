@@ -2262,4 +2262,5 @@ export default {
   'Ready under': '低於此值即就緒',
   'Not before': '最短休息',
   'Use my last workout': '使用我上次的訓練',
+  'Set logged from your watch': '已從手錶記錄這組',
 }

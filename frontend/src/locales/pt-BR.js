@@ -1430,6 +1430,7 @@ export const PT_BR_OVERRIDES = {
   'Ready under': 'Pronto abaixo de',
   'Not before': 'Não antes de',
   'Use my last workout': 'Usar meu último treino',
+  'Set logged from your watch': 'Série registrada pelo seu relógio',
 }
 
 export default { ...pt, ...PT_BR_OVERRIDES }

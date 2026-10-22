@@ -2269,4 +2269,5 @@ export default {
   'Ready under': 'Prêt sous',
   'Not before': 'Pas avant',
   'Use my last workout': 'Utiliser ma dernière séance',
+  'Set logged from your watch': 'Série enregistrée depuis ta montre',
 }

@@ -119,6 +119,23 @@ export async function watchRest(timer) {
 }
 
 /**
+ * The set the watch offers to log (lib/watch-set.js currentSetFor); null clears it. Same guards as
+ * watchRest. True when it reached the plugin, so the caller knows what the watch has.
+ */
+export async function watchSet(payload) {
+  if (!MOBILE) return false
+  try {
+    const p = await plugin()
+    if (!p) return false
+    const f = await loadWatchPref()
+    if (!f.useWatch || !Object.values(f.held).some(e => e?.s === 'pending' && !e.end)) return false
+    if (!payload) await p.W.clearSet()
+    else await p.W.set({ ...payload })
+    return true
+  } catch { return false }
+}
+
+/**
  * At launch: a watch session whose end was never sent (the app killed mid-finish, a workout
  * discarded from the error screen) is ended with its saved workout's end, or thrown away.
  */
@@ -169,24 +186,38 @@ function emit(name, data) {
   subs.forEach(cb => { try { cb(name, data) } catch { /* a closed screen */ } })
 }
 
-/** cb(name, data) for heartRate, watchState, restAction and reachability. Returns the unsubscribe. */
+/** cb(name, data) for heartRate, watchState, restAction, reachability, and setDone once initWatchLink took it. Returns the unsubscribe. */
 export function onWatchEvent(cb) {
   subs.add(cb)
   wire()
   return () => { subs.delete(cb) }
 }
 
+// A set logged on the wrist: its own subscription, made by initWatchLink, so the native side
+// (which keeps it until someone listens) hands it over only once the store can take it.
+let setDoneWired = null
+const wireSetDone = () => setDoneWired || (setDoneWired = plugin()
+  .then(p => p && p.W.addListener('setDone', data => emit('setDone', data)))
+  .catch(() => null))
+
 /**
- * Once, from the store: what the watch's end, failure and rest buttons mean to the app, and with
- * getState a look for a session left running a few seconds after launch (reconcileWatch).
- * onEnded(id) after the watch saved a workout, onFailed(id) when it did not, onRestAction('add15' | 'skip').
+ * Once, from the store: what the watch's end, failure, rest and Completed buttons mean to the
+ * app, and with getState a look for a session left running a few seconds after launch
+ * (reconcileWatch). onEnded(id) after the watch saved a workout, onFailed(id) when it did not,
+ * onRestAction('add15' | 'skip'), onSetDone({ id, entryId, idx, i, w, r, at }), onRunning(id) when a
+ * watch session runs.
  */
 let started = false
-export function initWatchLink({ onEnded, onFailed, onRestAction, getState } = {}) {
+export function initWatchLink({ onEnded, onFailed, onRestAction, onSetDone, onRunning, getState } = {}) {
   if (!MOBILE || started) return
   started = true
   if (getState) setTimeout(() => { reconcileWatch(getState()).catch(() => {}) }, 3000)
+  if (onSetDone) wireSetDone()
   onWatchEvent((name, data) => {
+    if (name === 'setDone') {
+      if (data && data.id != null && Number.isInteger(data.idx) && Number.isInteger(data.i)) onSetDone?.(data)
+      return
+    }
     if (name === 'restAction') {
       if (data?.action === 'add15' || data?.action === 'skip') onRestAction?.(data.action)
       return
@@ -195,6 +226,7 @@ export function initWatchLink({ onEnded, onFailed, onRestAction, getState } = {}
     noteWatchState(data).then(() => {
       if (data?.state === 'ended') onEnded?.(String(data.id))
       if (data?.state === 'failed') onFailed?.(String(data.id))
+      if (data?.state === 'running') onRunning?.(String(data.id))
     }).catch(() => {})
   })
 }

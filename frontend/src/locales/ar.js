@@ -2324,4 +2324,5 @@ export default {
   'Ready under': 'جاهز تحت',
   'Not before': 'ليس قبل',
   'Use my last workout': 'استخدم آخر تمرين لي',
+  'Set logged from your watch': 'تم تسجيل المجموعة من ساعتك',
 }

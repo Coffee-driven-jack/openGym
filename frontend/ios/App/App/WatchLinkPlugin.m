@@ -8,4 +8,6 @@ CAP_PLUGIN(WatchLinkPlugin, "WatchLink",
            CAP_PLUGIN_METHOD(endSession, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(rest, CAPPluginReturnPromise);
            CAP_PLUGIN_METHOD(clearRest, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(set, CAPPluginReturnPromise);
+           CAP_PLUGIN_METHOD(clearSet, CAPPluginReturnPromise);
 )

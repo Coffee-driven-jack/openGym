@@ -2266,4 +2266,5 @@ export default {
   'Ready under': 'Готовий нижче',
   'Not before': 'Не раніше ніж',
   'Use my last workout': 'Взяти з останнього тренування',
+  'Set logged from your watch': 'Підхід записано з годинника',
 }

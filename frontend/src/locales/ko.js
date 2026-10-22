@@ -2269,4 +2269,5 @@ export default {
   'Ready under': '이 값 아래면 준비',
   'Not before': '최소 휴식',
   'Use my last workout': '마지막 운동으로 설정',
+  'Set logged from your watch': '워치에서 세트 기록됨',
 }

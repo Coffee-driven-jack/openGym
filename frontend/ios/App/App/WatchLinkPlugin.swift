@@ -7,7 +7,8 @@ import os
 /**
  * The phone's end of the link to the openGym watch app (frontend/ios/App/OpenGymWatch). The
  * workout's start and end go as messages when the watch app is reachable and as userInfo
- * transfers otherwise, the rest timer as the application context, where only the latest counts.
+ * transfers otherwise, the rest timer and the current set as the application context, where only
+ * the latest counts: both are kept here and always sent together, so one never clobbers the other.
  * Starting also launches the watch app through HealthKit, so the session starts without the user
  * opening it.
  *
@@ -18,7 +19,9 @@ import os
  *   await W.endSession({ id, end, discard });  // { sent: 'message' | 'transfer' }
  *   await W.rest({ endsAt, total, paused, left, ready }); // ready: heart rate back down (lib/hr-readiness.js)
  *   await W.clearRest();
- *   W.addListener('heartRate' | 'watchState' | 'restAction' | 'reachability', cb);
+ *   await W.set({ id, entryId, name, idx, i, setNo, setCount, warmup, mode, w, r, unit, each, inc, nextName });
+ *   await W.clearSet();
+ *   W.addListener('heartRate' | 'watchState' | 'restAction' | 'reachability' | 'setDone', cb);
  */
 @objc(WatchLinkPlugin)
 public class WatchLinkPlugin: CAPPlugin, WCSessionDelegate {
@@ -28,6 +31,9 @@ public class WatchLinkPlugin: CAPPlugin, WCSessionDelegate {
     // WCSession is only usable once activated; what comes before that waits here.
     private let queue = DispatchQueue(label: "ch.duartesantos.opengym.watchlink")
     private var waiting: [(WCSession) -> Void] = []
+    // The last rest and set sent, only touched on `queue`: the context is always both.
+    private var lastRest: [String: Any]?
+    private var lastSet: [String: Any]?
 
     override public func load() {
         guard WCSession.isSupported() else { return }
@@ -80,12 +86,37 @@ public class WatchLinkPlugin: CAPPlugin, WCSessionDelegate {
             "at": Self.now(),
         ]
         if let endsAt = call.getDouble("endsAt") { rest["endsAt"] = endsAt }
-        updateContext(["rest": rest], call)
+        updateContext(rest: rest, call)
     }
 
     // NSNull is not a property-list type and the context refuses it: a clear is its own record.
     @objc func clearRest(_ call: CAPPluginCall) {
-        updateContext(["rest": ["cleared": true, "at": Self.now()]], call)
+        updateContext(rest: ["cleared": true, "at": Self.now()], call)
+    }
+
+    /// The set to log on the wrist (lib/watch-set.js).
+    @objc func set(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), let entryId = call.getString("entryId"),
+              let idx = call.getInt("idx"), let i = call.getInt("i") else {
+            call.reject("id, entryId, idx and i are required", "failed")
+            return
+        }
+        var set: [String: Any] = [
+            "id": id, "entryId": entryId, "name": call.getString("name") ?? "",
+            "idx": idx, "i": i,
+            "setNo": call.getInt("setNo") ?? 1, "setCount": call.getInt("setCount") ?? 1,
+            "warmup": call.getBool("warmup") ?? false, "mode": call.getString("mode") ?? "reps",
+            "w": call.getDouble("w") ?? 0, "r": call.getInt("r") ?? 0,
+            "unit": call.getString("unit") ?? "kg", "each": call.getBool("each") ?? false,
+            "inc": call.getDouble("inc") ?? 2.5,
+            "at": Self.now(),
+        ]
+        if let next = call.getString("nextName") { set["nextName"] = next }
+        updateContext(set: set, call)
+    }
+
+    @objc func clearSet(_ call: CAPPluginCall) {
+        updateContext(set: ["cleared": true, "at": Self.now()], call)
     }
 
     // MARK: - Sending
@@ -114,12 +145,17 @@ public class WatchLinkPlugin: CAPPlugin, WCSessionDelegate {
         }
     }
 
-    private func updateContext(_ context: [String: Any], _ call: CAPPluginCall) {
+    private func updateContext(rest: [String: Any]? = nil, set: [String: Any]? = nil, _ call: CAPPluginCall) {
         guard WCSession.isSupported() else {
             call.reject("Apple Watch is not supported on this device", "unavailable")
             return
         }
         withSession { [log] session in
+            if let rest { self.lastRest = rest }
+            if let set { self.lastSet = set }
+            var context: [String: Any] = [:]
+            if let rest = self.lastRest { context["rest"] = rest }
+            if let set = self.lastSet { context["set"] = set }
             guard session.isPaired, session.isWatchAppInstalled else {
                 call.resolve()
                 return
@@ -215,6 +251,16 @@ public class WatchLinkPlugin: CAPPlugin, WCSessionDelegate {
         case "rest":
             guard let action = payload["action"] as? String, action == "add15" || action == "skip" else { return }
             notifyListeners("restAction", data: ["action": action])
+        case "set":
+            guard payload["action"] as? String == "done", let id = payload["id"] as? String,
+                  let entryId = payload["entryId"] as? String,
+                  let idx = (payload["idx"] as? NSNumber)?.intValue, let i = (payload["i"] as? NSNumber)?.intValue else { return }
+            var data: JSObject = ["id": id, "entryId": entryId, "idx": idx, "i": i,
+                                  "at": (payload["at"] as? NSNumber)?.doubleValue ?? Self.now()]
+            if let w = (payload["w"] as? NSNumber)?.doubleValue { data["w"] = w }
+            if let r = (payload["r"] as? NSNumber)?.intValue { data["r"] = r }
+            // Kept until JS listens: a set logged while the phone app slept is not lost.
+            notifyListeners("setDone", data: data, retainUntilConsumed: true)
         default:
             log.info("Ignored a message from the watch")
         }
